@@ -32,6 +32,8 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py38"
+
+[too.ruff.lint]
 select = [
   # isort
   "I",
