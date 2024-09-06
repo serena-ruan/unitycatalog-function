@@ -18,6 +18,7 @@ from unitycatalog.functions.utils import (
     validate_param,
     validate_full_function_name,
 )
+from unitycatalog.functions.paged_list import PagedList
 
 if TYPE_CHECKING:
     from databricks.sdk import WorkspaceClient
@@ -198,18 +199,47 @@ class DatabricksFunctionClient(BaseFunctionClient):
         return self.client.functions.get(function_name)
 
     @override
-    def list_functions(self, catalog: str, schema: str) -> List["FunctionInfo"]:
+    def list_functions(
+        self,
+        catalog: str,
+        schema: str,
+        max_results: Optional[int] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[List["FunctionInfo"]]:
         """
         List functions in a catalog and schema.
 
         Args:
             catalog (str): The catalog name.
             schema (str): The schema name.
+            max_results (int, optional): The maximum number of functions to return. Defaults to None.
+            page_token (str, optional): The token for the next page. Defaults to None.
 
         Returns:
-            List[FunctionInfo]: The list of functions info.
+            PageList[List[FunctionInfo]]: The paginated list of function infos.
         """
-        return list(self.client.functions.list(catalog_name=catalog, schema_name=schema))
+        from databricks.sdk.service.catalog import FunctionInfo
+        
+        # do not reuse self.client.functions.list because the list API in databricks-sdk
+        # doesn't work for max_results and page_token
+        query = {}
+        if catalog is not None:
+            query['catalog_name'] = catalog
+        if max_results is not None:
+            query['max_results'] = max_results
+        if page_token is not None:
+            query['page_token'] = page_token
+        if schema is not None:
+            query['schema_name'] = schema
+        headers = {'Accept': 'application/json', }
+
+        function_infos = []
+        json = self.client.functions._api.do('GET', '/api/2.1/unity-catalog/functions', query=query, headers=headers)
+        if 'functions' in json:
+            function_infos = [FunctionInfo.from_dict(v) for v in json['functions']]
+        token = json.get("next_page_token")
+        return PagedList(function_infos, token)
+    
 
     @override
     def _validate_param_type(self, value: Any, param_info: "FunctionParameterInfo") -> None:

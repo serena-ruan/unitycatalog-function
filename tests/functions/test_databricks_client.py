@@ -36,7 +36,7 @@ _logger = logging.getLogger(__name__)
 
 @pytest.fixture
 def client() -> DatabricksFunctionClient:
-    return DatabricksFunctionClient(warehouse_id="fake_warehouse_id")
+    return DatabricksFunctionClient(warehouse_id="fake_warehouse_id", cluster_id="fake_cluster_id")
 
 
 def random_func_name():
@@ -284,6 +284,16 @@ def test_get_function_errors(client: DatabricksFunctionClient):
         client.get_function("catalog.schema.some_func*")
 
 
+def simple_function(func_name: str) -> FunctionInputOutput:
+    return f"""CREATE FUNCTION {func_name}(s STRING)
+RETURNS STRING
+LANGUAGE PYTHON
+AS $$
+    return s
+    $$
+"""
+
+
 @pytest.mark.skipif(
     version("databricks-connect") != "15.1.0",
     reason="Creating function with sql body relies on databricks connect using serverless, which is only available in 15.1.0",
@@ -294,20 +304,23 @@ def test_list_functions(client: DatabricksFunctionClient):
 
     with generate_func_name_and_cleanup(client) as func_name:
         full_func_name = f"{CATALOG}.{SCHEMA}.{func_name}"
-        sql_body = f"""CREATE FUNCTION {full_func_name}(s STRING)
-RETURNS STRING
-LANGUAGE PYTHON
-AS $$
-    return s
-    $$
-"""
-        create_func_info = client.create_function(sql_function_body=sql_body)
+        create_func_info = client.create_function(sql_function_body=simple_function(full_func_name))
         function_info = client.get_function(full_func_name)
         assert create_func_info == function_info
 
         function_infos = client.list_functions(catalog=CATALOG, schema=SCHEMA)
         assert isinstance(function_infos, list) and len(function_infos) == existing_function_num + 1
         assert len([f for f in function_infos if f.full_name == full_func_name]) == 1
+        
+        with generate_func_name_and_cleanup(client) as func_name_2:
+            client.create_function(sql_function_body=simple_function(f"{CATALOG}.{SCHEMA}.{func_name_2}"))
+            function_infos = client.list_functions(catalog=CATALOG, schema=SCHEMA, max_results=1)
+            assert len(function_infos) == 1
+            function_info = function_infos[0]
+            function_infos = client.list_functions(catalog=CATALOG, schema=SCHEMA, max_results=1, page_token=function_infos.token)
+            assert len(function_infos) == 1
+            assert function_infos[0] != function_info
+            
 
 
 @pytest.mark.parametrize(
