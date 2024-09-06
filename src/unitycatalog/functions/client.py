@@ -4,7 +4,8 @@ import threading
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Literal, Optional, List
+from unitycatalog.functions.paged_list import PagedList
 
 _logger = logging.getLogger(__name__)
 
@@ -38,16 +39,40 @@ class BaseFunctionClient(ABC):
         self._lock = threading.Lock()
 
     @abstractmethod
-    def create_function(self, function_info: Any) -> Any:
+    def create_function(self, *args: Any, **kwargs: Any) -> Any:
         """Create a function"""
 
     @abstractmethod
     def get_function(self, function_name: str, **kwargs: Any) -> Any:
-        """Get a function by its name"""
+        """
+        Get a function by its name.
+
+        Args:
+            function_name (str): The name of the function to get.
+            kwargs: additional key-value pairs to include when getting the function.
+        """
 
     @abstractmethod
-    def list_functions(self, catalog: str, schema: str) -> Any:
-        """List functions in a catalog and schema"""
+    def list_functions(
+        self,
+        catalog: str,
+        schema: str,
+        max_results: Optional[int] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[List[Any]]:
+        """
+        List functions in a catalog and schema.
+
+        Args:
+            catalog (str): The catalog name.
+            schema (str): The schema name.
+            max_results (int, optional): The maximum number of functions to return. Defaults to None.
+            page_token (str, optional): The token for the next page. Defaults to None.
+
+        Returns:
+            PageList[List[Any]]: The paginated list of function infos, the type of the function
+                info is determined by the client implementation.
+        """
 
     def validate_input_params(self, input_params: Any, parameters: Dict[str, Any]) -> None:
         """

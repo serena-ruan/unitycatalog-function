@@ -104,9 +104,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
     """
 
     def __init__(self, client: Optional["WorkspaceClient"] = None, **kwargs: Any) -> None:
-        if client is None:
-            client = get_default_databricks_workspace_client()
-        self.client = client
+        self.client = client or get_default_databricks_workspace_client()
         self.warehouse_id = kwargs.get("warehouse_id")
         self.cluster_id = kwargs.get("cluster_id")
         self.profile = kwargs.get("profile")
