@@ -2,6 +2,7 @@ from typing import Any, List
 import datetime
 import decimal
 
+
 def column_type_to_python_type(column_type: str) -> Any:
     mapping = {
         # numpy array is not accepted, it's not json serializable
@@ -39,6 +40,7 @@ def column_type_to_python_type(column_type: str) -> Any:
         raise ValueError(f"Unsupported column type: {column_type}")
     return mapping[column_type]
 
+
 def is_time_type(column_type: str) -> bool:
     return column_type in (
         "DATE",
@@ -46,10 +48,11 @@ def is_time_type(column_type: str) -> bool:
         "TIMESTAMP_NTZ",
     )
 
+
 def validate_param(param: Any, column_type: str, param_type_text: str) -> None:
     """
     Validate the parameter against the parameter info.
-    
+
     Args:
         param (Any): The parameter to validate.
         column_type (str): The column type name.
@@ -62,10 +65,7 @@ def validate_param(param: Any, column_type: str, param_type_text: str) -> None:
             raise ValueError(f"Invalid datetime string: {param}, expecting ISO format.") from e
     elif column_type == "INTERVAL":
         # only day-time interval is supported, no year-month interval
-        if (
-            isinstance(param, datetime.timedelta)
-            and param_type_text != "interval day to second"
-        ):
+        if isinstance(param, datetime.timedelta) and param_type_text != "interval day to second":
             raise ValueError(
                 f"Invalid interval type text: {param_type_text}, expecting 'interval day to second', "
                 "python timedelta can only be used for day-time interval."
@@ -94,10 +94,10 @@ def convert_timedelta_to_interval_str(time_val: datetime.timedelta) -> str:
 def validate_full_function_name(function_name: str) -> List[str]:
     """
     Validate the full function name follows the format <catalog_name>.<schema_name>.<function_name>.
-    
+
     Args:
         function_name (str): The full function name.
-    
+
     Returns:
         List[str]: The splits of the full function name.
     """

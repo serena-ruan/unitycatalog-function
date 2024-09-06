@@ -44,7 +44,7 @@ class BaseFunctionClient(ABC):
     @abstractmethod
     def get_function(self, function_name: str, **kwargs: Any) -> Any:
         """Get a function by its name"""
-    
+
     @abstractmethod
     def list_functions(self, catalog: str, schema: str) -> Any:
         """List functions in a catalog and schema"""

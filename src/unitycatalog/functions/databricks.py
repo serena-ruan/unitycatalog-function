@@ -22,6 +22,7 @@ from unitycatalog.functions.paged_list import PagedList
 
 if TYPE_CHECKING:
     from databricks.sdk import WorkspaceClient
+    from databricks.sdk.service.sql import StatementState
     from databricks.sdk.service.catalog import (
         CreateFunction,
         FunctionInfo,
@@ -49,6 +50,25 @@ def get_default_databricks_workspace_client() -> "WorkspaceClient":
             "please install it with `pip install databricks-sdk`."
         ) from e
     return WorkspaceClient()
+
+
+def _databricks_connect_available() -> bool:
+    try:
+        from databricks.connect.session import DatabricksSession  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+def _try_get_spark_session_in_dbr() -> Any:
+    try:
+        # if in Databricks, fetch the current active session
+        from databricks.sdk.runtime import spark
+
+        return spark
+    except Exception:
+        return
 
 
 def extract_function_name(sql_body: str) -> str:
@@ -90,12 +110,11 @@ class DatabricksFunctionClient(BaseFunctionClient):
         self.warehouse_id = kwargs.get("warehouse_id")
         self.cluster_id = kwargs.get("cluster_id")
         self.profile = kwargs.get("profile")
-        # TODO: if in Databricks, fetch the current active session
-        self.spark = None
+        # TODO: add CI to run this in Databricks notebook
+        self.spark = _try_get_spark_session_in_dbr()
         super().__init__()
 
     def set_default_spark_session(self):
-        # TODO: if cluster_id is not None, use databricks-sdk for executing the command
         if self.spark is None or self.spark.is_stopped:
             try:
                 from databricks.connect.session import DatabricksSession as SparkSession
@@ -110,13 +129,12 @@ class DatabricksFunctionClient(BaseFunctionClient):
                 else:
                     _logger.warning(
                         "Serverless is not supported by the current databricks-connect "
-                        "version, please upgrade to a newer version for connecting "
-                        "to serverless compute in Databricks with `pip install databricks-connect -U`."
+                        "version, please install with `pip install databricks-connect==15.1.0` "
+                        "to use serverless compute in Databricks."
                     )
                     # serverless is not supported in older versions of databricks-connect
                     # a cluster id must be provided instead
                     if self.cluster_id:
-                        # TODO: validate this
                         self.spark = builder.remote(cluster_id=self.cluster_id).getOrCreate()
                     else:
                         raise ValueError(
@@ -159,15 +177,51 @@ class DatabricksFunctionClient(BaseFunctionClient):
         if sql_function_body and function_info:
             raise ValueError("Only one of sql_function_body and function_info should be provided.")
         if sql_function_body:
-            _logger.info("Using databricks connect to create function.")
-            self.set_default_spark_session()
-            try:
-                self.spark.sql(sql_function_body)  # type: ignore
-            except Exception as e:
-                raise ValueError(
-                    f"Failed to create function with sql body: {sql_function_body}"
-                ) from e
-            return self.get_function(extract_function_name(sql_function_body))  # type: ignore
+            # databricks-connect is easier to use for executing command than databricks-sdk,
+            # so we use databricks-connect to create function if available
+            if _databricks_connect_available():
+                _logger.info("Using databricks connect to create function.")
+                try:
+                    self.set_default_spark_session()
+                    self.spark.sql(sql_function_body)
+                except Exception as e:
+                    raise RuntimeError(
+                        f"Failed to create function with sql body: {sql_function_body}"
+                    ) from e
+            elif self.cluster_id:
+                _logger.info("Using databricks cluster to create function.")
+                from databricks.sdk.service.compute import Language, ContextStatus, CommandStatus
+
+                context_result = self.client._command_execution.create_and_wait(
+                    cluster_id=self.cluster_id, language=Language.SQL
+                )
+                if context_result.status == ContextStatus.RUNNING:
+                    result = self.client._command_execution.execute_and_wait(
+                        cluster_id=self.cluster_id,
+                        command=sql_function_body,
+                        context_id=context_result.id,
+                        language=Language.SQL,
+                    )
+                    if result.status in (
+                        CommandStatus.ERROR,
+                        CommandStatus.CANCELLED,
+                        CommandStatus.CANCELLING,
+                    ):
+                        raise Exception(f"Error when executing the command: {result}")
+                # TODO: add retry here
+                elif context_result.status == ContextStatus.PENDING:
+                    raise Exception(
+                        "The cluster is still pending, please wait for it to be running and try again later"
+                    )
+                else:
+                    raise Exception(
+                        "Error when starting the cluster, please check the cluster status and try again later"
+                    )
+            else:
+                raise Exception(
+                    "Cannot create function with sql body without databricks connect or cluster_id."
+                )
+            return self.get_function(extract_function_name(sql_function_body))
         if function_info:
             # TODO: support this after CreateFunction bug is fixed in databricks-sdk
             raise NotImplementedError("Creating function using function_info is not supported yet.")
@@ -219,27 +273,30 @@ class DatabricksFunctionClient(BaseFunctionClient):
             PageList[List[FunctionInfo]]: The paginated list of function infos.
         """
         from databricks.sdk.service.catalog import FunctionInfo
-        
+
         # do not reuse self.client.functions.list because the list API in databricks-sdk
         # doesn't work for max_results and page_token
         query = {}
         if catalog is not None:
-            query['catalog_name'] = catalog
+            query["catalog_name"] = catalog
         if max_results is not None:
-            query['max_results'] = max_results
+            query["max_results"] = max_results
         if page_token is not None:
-            query['page_token'] = page_token
+            query["page_token"] = page_token
         if schema is not None:
-            query['schema_name'] = schema
-        headers = {'Accept': 'application/json', }
+            query["schema_name"] = schema
+        headers = {
+            "Accept": "application/json",
+        }
 
         function_infos = []
-        json = self.client.functions._api.do('GET', '/api/2.1/unity-catalog/functions', query=query, headers=headers)
-        if 'functions' in json:
-            function_infos = [FunctionInfo.from_dict(v) for v in json['functions']]
+        json = self.client.functions._api.do(
+            "GET", "/api/2.1/unity-catalog/functions", query=query, headers=headers
+        )
+        if "functions" in json:
+            function_infos = [FunctionInfo.from_dict(v) for v in json["functions"]]
         token = json.get("next_page_token")
         return PagedList(function_infos, token)
-    
 
     @override
     def _validate_param_type(self, value: Any, param_info: "FunctionParameterInfo") -> None:
@@ -349,11 +406,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
             # expected, so it's still pending even after 6 times of retry;
             # we should see if we can check the warehouse status before invocation, and
             # increase the wait time if needed
-            if (
-                response.status
-                and response.status.state == StatementState.PENDING
-                and response.statement_id
-            ):
+            if response.status and job_pending(response.status.state) and response.statement_id:
                 statement_id = response.statement_id
                 _logger.info("Retrying to get statement execution status...")
                 max_retries = 6
@@ -361,9 +414,9 @@ class DatabricksFunctionClient(BaseFunctionClient):
                     time.sleep(2**retry_cnt)
                     _logger.info(f"Retry times: {retry_cnt}")
                     response = self.client.statement_execution.get_statement(statement_id)
-                    if response.status is None or response.status.state != StatementState.PENDING:
+                    if response.status is None or not job_pending(response.status.state):
                         break
-                if response.status and response.status.state == StatementState.PENDING:
+                if response.status and job_pending(response.status.state):
                     return FunctionExecutionResult(
                         error=f"Statement execution is still pending after {max_retries} times. "
                         "Please try increase the wait_timeout argument for executing the function."
@@ -426,6 +479,12 @@ def is_scalar(function: "FunctionInfo") -> bool:
     from databricks.sdk.service.catalog import ColumnTypeName
 
     return function.data_type != ColumnTypeName.TABLE_TYPE
+
+
+def job_pending(state: "StatementState") -> bool:
+    from databricks.sdk.service.sql import StatementState
+
+    return state in (StatementState.PENDING, StatementState.RUNNING)
 
 
 @dataclass
