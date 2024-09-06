@@ -1,5 +1,5 @@
 [project]
-name = "unitycatalog-function"
+name = "unitycatalog-functions"
 version = "0.0.1"
 description = "Official Python library for Unity Catalog functions support"
 authors = [
