@@ -1,12 +1,12 @@
-## Unitycatalog function library
+## Unity Catalog function library
 
-The Unitycatalog function library provides convenient APIs to interact with Unitycatalog functions, including functions creation, retrieval and execution.
-The library includes clients for interacting with both Unitycatalog OSS server and Databricks-managed Unitycatalog.
+The Unity Catalog function library provides convenient APIs to interact with Unity Catalog functions, including functions creation, retrieval and execution.
+The library includes clients for interacting with both the Open-Source Unity Catalog server and the Databricks-managed Unity Catalog service.
 
 ## Installation
 
 ```sh
-# install from the production repo
+# install from the source
 pip install git+ssh://git@github.com/serena-ruan/unitycatalog-function.git
 ```
 > [!NOTE]
@@ -16,7 +16,7 @@ pip install git+ssh://git@github.com/serena-ruan/unitycatalog-function.git
 ## Get started
 
 ### Databricks-managed UC
-To use Databricks-managed Unitycatalog, please follow the [instruction](https://docs.databricks.com/en/dev-tools/cli/authentication.html#authentication-for-the-databricks-cli) to authenticate first and make sure the token has workspace-level privilege for managing UC functions.
+To use Databricks-managed Unity Catalog with this package, follow the [instructions](https://docs.databricks.com/en/dev-tools/cli/authentication.html#authentication-for-the-databricks-cli) to authenticate to your workspace and ensure that your access token has workspace-level privilege for managing UC functions.
 
 #### Prerequisites
 - Install databricks-sdk package with `pip install databricks-sdk`.
@@ -60,7 +60,7 @@ The client also provides API to get the UC function information details. Note th
 
 ```python
 full_func_name = f"{CATALOG}.{SCHEMA}.{func_name}"
-client.retrieve_function(full_func_name)
+client.get_function(full_func_name)
 ```
 
 #### Execute a UC function

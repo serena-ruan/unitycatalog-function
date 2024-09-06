@@ -40,12 +40,14 @@ class BaseFunctionClient(ABC):
     @abstractmethod
     def create_function(self, function_info: Any) -> Any:
         """Create a function"""
-        raise NotImplementedError
 
     @abstractmethod
-    def retrieve_function(self, function_name: str, **kwargs: Any) -> Any:
-        """Retrieve a function by its name"""
-        raise NotImplementedError
+    def get_function(self, function_name: str, **kwargs: Any) -> Any:
+        """Get a function by its name"""
+    
+    @abstractmethod
+    def list_functions(self, catalog: str, schema: str) -> Any:
+        """List functions in a catalog and schema"""
 
     def validate_input_params(self, input_params: Any, parameters: Dict[str, Any]) -> None:
         """
@@ -87,7 +89,6 @@ class BaseFunctionClient(ABC):
             value (Any): The value of the parameter.
             param_info (Any): The parameter info.
         """
-        raise NotImplementedError
 
     def execute_function(
         self, function_name: str, parameters: Optional[Dict[str, Any]] = None, **kwargs: Any
@@ -104,7 +105,7 @@ class BaseFunctionClient(ABC):
             FunctionExecutionResult: The result of executing the function.
         """
         with self._lock:
-            function_info = self.retrieve_function(function_name, **kwargs)
+            function_info = self.get_function(function_name, **kwargs)
             parameters = parameters or {}
             self.validate_input_params(function_info.input_params, parameters)
             return self._execute_uc_function(function_info, parameters, **kwargs)
@@ -113,7 +114,9 @@ class BaseFunctionClient(ABC):
     def _execute_uc_function(
         self, function_info: Any, parameters: Dict[str, Any], **kwargs: Any
     ) -> FunctionExecutionResult:
-        raise NotImplementedError
+        """
+        Internal logic for executing a UC function.
+        """
 
 
 # TODO: update BaseFunctionClient to Union[BaseFunctionClient, AsyncBaseFunctionClient] after async client is supported
@@ -129,7 +132,7 @@ def get_uc_function_client() -> Optional[BaseFunctionClient]:
 def set_uc_function_client(client: BaseFunctionClient) -> None:
     global _uc_function_client
 
-    if not isinstance(client, BaseFunctionClient):
+    if client and not isinstance(client, BaseFunctionClient):
         raise ValueError("client must be an instance of BaseFunctionClient")
 
     with _client_lock:

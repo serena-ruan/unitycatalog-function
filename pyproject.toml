@@ -1,12 +1,12 @@
 [project]
 name = "unitycatalog-function"
 version = "0.0.1"
-description = "Official python library for unitycatalog functions support"
+description = "Official Python library for Unity Catalog functions support"
 authors = [
     { name="Serena Ruan", email="serena.ruan@databricks.com" }
 ]
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
   "typing_extensions"
 ]
@@ -15,18 +15,27 @@ dependencies = [
 file = "LICENSE.txt"
 
 [build-system]
-requires = ["setuptools>=42", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
+[tool.hatch.build]
+include = [
+  "src/*"
+]
+
+[tool.hatch.build.targets.wheel]
+include = ["src/**"]
+exclude = ["tests/**", "*.md"]
 
 [project.optional-dependencies]
 dev = [
+  "hatch",
   "pytest",
-  "databricks-sdk",
+  "databricks-sdk>=0.32.0",
   # Note: databricks-connect 15.1 is recommended for serverless, databricks-connect>=14.0.0 requires python>=3.10
   "databricks-connect==15.1.0",
   "pandas",
-  "ruff",
+  "ruff==0.6.4",
 ]
 
 [tool.ruff]
@@ -58,3 +67,6 @@ docstring-code-line-length = 88
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

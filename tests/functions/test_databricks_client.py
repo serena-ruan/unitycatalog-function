@@ -11,7 +11,6 @@ from unittest import mock
 import pytest
 from databricks.sdk.service.catalog import (
     ColumnTypeName,
-    CreateFunction,
     CreateFunctionParameterStyle,
     CreateFunctionRoutineBody,
     CreateFunctionSecurityType,
@@ -226,45 +225,6 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
     )
 
 
-def test_create_function_with_function_info(client: DatabricksFunctionClient):
-    catalog_name = "ml"
-    schema_name = "serena_test"
-    func_name = "test"
-    create_function = CreateFunction(
-        name=func_name,
-        catalog_name=catalog_name,
-        schema_name=schema_name,
-        input_params=FunctionParameterInfos(
-            [
-                FunctionParameterInfo(
-                    "x",
-                    type_name=ColumnTypeName.STRING,
-                    type_text="string",
-                    position=0,
-                    type_json='{"name":"x","type":"string","nullable":true,"metadata":{}}',
-                )
-            ]
-        ),
-        data_type=ColumnTypeName.STRING,
-        external_language="Python",
-        comment="test function",
-        routine_body=CreateFunctionRoutineBody.EXTERNAL,
-        routine_definition="return x",
-        full_data_type="STRING",
-        return_params=FunctionParameterInfos(),
-        routine_dependencies=DependencyList(),
-        parameter_style=CreateFunctionParameterStyle.S,  # list things that is broken
-        is_deterministic=False,
-        sql_data_access=CreateFunctionSqlDataAccess.NO_SQL,
-        is_null_call=False,
-        security_type=CreateFunctionSecurityType.DEFINER,
-        specific_name="test",
-    )
-    create_func_info = client.create_function(function_info=create_function)
-    function_info = client.retrieve_function(f"{catalog_name}.{schema_name}.{func_name}")
-    assert create_func_info == function_info
-
-
 @pytest.mark.skipif(
     version("databricks-connect") != "15.1.0",
     reason="Creating function with sql body relies on databricks connect using serverless, which is only available in 15.1.0",
@@ -298,8 +258,38 @@ def test_create_and_execute_function(
     version("databricks-connect") != "15.1.0",
     reason="Creating function with sql body relies on databricks connect using serverless, which is only available in 15.1.0",
 )
-def test_retrieve_function(client: DatabricksFunctionClient):
-    function_infos = client.retrieve_function(f"{CATALOG}.{SCHEMA}.*")
+def test_get_function(client: DatabricksFunctionClient):
+    with generate_func_name_and_cleanup(client) as func_name:
+        full_func_name = f"{CATALOG}.{SCHEMA}.{func_name}"
+        sql_body = f"""CREATE FUNCTION {full_func_name}(s STRING)
+RETURNS STRING
+LANGUAGE PYTHON
+AS $$
+    return s
+    $$
+"""
+        create_func_info = client.create_function(sql_function_body=sql_body)
+        function_info = client.get_function(full_func_name)
+        assert create_func_info == function_info
+
+
+def test_get_function_errors(client: DatabricksFunctionClient):
+    with pytest.raises(ValueError, match=r"Invalid function name"):
+        client.get_function("test")
+
+    with pytest.raises(ValueError, match=r"function name cannot include *"):
+        client.get_function("catalog.schema.*")
+
+    with pytest.raises(ValueError, match=r"function name cannot include *"):
+        client.get_function("catalog.schema.some_func*")
+
+
+@pytest.mark.skipif(
+    version("databricks-connect") != "15.1.0",
+    reason="Creating function with sql body relies on databricks connect using serverless, which is only available in 15.1.0",
+)
+def test_list_functions(client: DatabricksFunctionClient):
+    function_infos = client.list_functions(catalog=CATALOG, schema=SCHEMA)
     existing_function_num = len(function_infos)  # type: ignore
 
     with generate_func_name_and_cleanup(client) as func_name:
@@ -312,10 +302,10 @@ AS $$
     $$
 """
         create_func_info = client.create_function(sql_function_body=sql_body)
-        function_info = client.retrieve_function(full_func_name)
+        function_info = client.get_function(full_func_name)
         assert create_func_info == function_info
 
-        function_infos = client.retrieve_function(f"{CATALOG}.{SCHEMA}.*")
+        function_infos = client.list_functions(catalog=CATALOG, schema=SCHEMA)
         assert isinstance(function_infos, list) and len(function_infos) == existing_function_num + 1
         assert len([f for f in function_infos if f.full_name == full_func_name]) == 1
 

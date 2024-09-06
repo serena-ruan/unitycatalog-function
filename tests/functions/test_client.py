@@ -11,9 +11,6 @@ from unitycatalog.functions.client import (
     set_uc_function_client,
 )
 
-MOCK_FUNCTION_INFO = {}
-
-
 @dataclass
 class MockParamInfo:
     name: str
@@ -36,8 +33,13 @@ class MockClient(BaseFunctionClient):
         return function_info
 
     @override
-    def retrieve_function(self, function_name: str, **kwargs: Any) -> Any:
-        return MOCK_FUNCTION_INFO
+    def get_function(self, function_name: str, **kwargs: Any) -> Any:
+        return {}
+    
+    @override
+    def list_functions(self, catalog: str, schema: str) -> Any:
+        """List functions in a catalog and schema"""
+        return [{}]
 
     @override
     def _validate_param_type(self, value: Any, param_info: MockParamInfo) -> None:

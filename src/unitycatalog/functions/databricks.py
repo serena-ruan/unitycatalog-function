@@ -1,23 +1,27 @@
-import datetime
-import decimal
 import inspect
 import json
 import logging
 import re
 import time
 from dataclasses import dataclass
-from enum import Enum
 from io import StringIO
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from decimal import Decimal
 
 from typing_extensions import override
 
 from unitycatalog.functions.client import BaseFunctionClient, FunctionExecutionResult
+from unitycatalog.functions.utils import (
+    column_type_to_python_type,
+    convert_timedelta_to_interval_str,
+    is_time_type,
+    validate_param,
+    validate_full_function_name,
+)
 
 if TYPE_CHECKING:
     from databricks.sdk import WorkspaceClient
     from databricks.sdk.service.catalog import (
-        ColumnTypeName,
         CreateFunction,
         FunctionInfo,
         FunctionParameterInfo,
@@ -46,75 +50,6 @@ def get_default_databricks_workspace_client() -> "WorkspaceClient":
     return WorkspaceClient()
 
 
-def column_type_to_python_type(column_type: Enum) -> Any:
-    from databricks.sdk.service.catalog import ColumnTypeName
-
-    mapping = {
-        # numpy array is not accepted, it's not json serializable
-        ColumnTypeName.ARRAY: (list, tuple),
-        # a string expression in base64 format
-        ColumnTypeName.BINARY: str,
-        ColumnTypeName.BOOLEAN: bool,
-        # tinyint type
-        ColumnTypeName.BYTE: int,
-        ColumnTypeName.CHAR: str,
-        ColumnTypeName.DATE: (datetime.date, str),
-        # no precision and scale check, rely on SQL function to validate
-        ColumnTypeName.DECIMAL: (decimal.Decimal, float),
-        ColumnTypeName.DOUBLE: float,
-        ColumnTypeName.FLOAT: float,
-        ColumnTypeName.INT: int,
-        ColumnTypeName.INTERVAL: (datetime.timedelta, str),
-        ColumnTypeName.LONG: int,
-        ColumnTypeName.MAP: dict,
-        # ref: https://docs.databricks.com/en/error-messages/datatype-mismatch-error-class.html#null_type
-        # it's not supported in return data type as well `[UNSUPPORTED_DATATYPE] Unsupported data type "NULL". SQLSTATE: 0A000`
-        ColumnTypeName.NULL: type(None),
-        ColumnTypeName.SHORT: int,
-        ColumnTypeName.STRING: str,
-        ColumnTypeName.STRUCT: dict,
-        # not allowed for python udf, users should only pass string
-        ColumnTypeName.TABLE_TYPE: str,
-        ColumnTypeName.TIMESTAMP: (datetime.datetime, str),
-        ColumnTypeName.TIMESTAMP_NTZ: (datetime.datetime, str),
-        # it's a type that can be defined in scala, python shouldn't force check the type here
-        # ref: https://www.waitingforcode.com/apache-spark-sql/used-defined-type/read
-        ColumnTypeName.USER_DEFINED_TYPE: object,
-    }
-    if column_type not in mapping:
-        raise ValueError(f"Unsupported column type: {column_type}")
-    return mapping[column_type]
-
-
-def validate_param(param: Any, param_info: "FunctionParameterInfo"):
-    from databricks.sdk.service.catalog import ColumnTypeName
-
-    column_type = param_info.type_name
-    if is_time_type(column_type) and isinstance(param, str):
-        try:
-            datetime.datetime.fromisoformat(param)
-        except ValueError as e:
-            raise ValueError(f"Invalid datetime string: {param}, expecting ISO format.") from e
-    elif column_type == ColumnTypeName.INTERVAL:
-        # only day-time interval is supported, no year-month interval
-        if (
-            isinstance(param, datetime.timedelta)
-            and param_info.type_text != "interval day to second"
-        ):
-            raise ValueError(
-                f"Invalid interval type text: {param_info.type_text}, expecting 'interval day to second', "
-                "python timedelta can only be used for day-time interval."
-            )
-        # Only DAY TO SECOND is supported in python udf
-        # rely on the SQL function for checking the interval format
-        elif isinstance(param, str) and not (
-            param.startswith("INTERVAL") and param.endswith("DAY TO SECOND")
-        ):
-            raise ValueError(
-                f"Invalid interval string: {param}, expecting format `INTERVAL '[+|-] d[...] [h]h:[m]m:[s]s.ms[ms][ms][us][us][us]' DAY TO SECOND`."
-            )
-
-
 def extract_function_name(sql_body: str) -> str:
     """
     Extract function name from the sql body.
@@ -135,7 +70,7 @@ def extract_function_name(sql_body: str) -> str:
     if match:
         return match.group(1)
     raise ValueError(
-        "Could not extract function name from the sql body. Please "
+        f"Could not extract function name from the sql body {sql_body}.\nPlease "
         "make sure the sql body follows the syntax of CREATE FUNCTION "
         "statement in Databricks: "
         "https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-ddl-create-sql-function.html#syntax."
@@ -154,10 +89,12 @@ class DatabricksFunctionClient(BaseFunctionClient):
         self.warehouse_id = kwargs.get("warehouse_id")
         self.cluster_id = kwargs.get("cluster_id")
         self.profile = kwargs.get("profile")
+        # TODO: if in Databricks, fetch the current active session
         self.spark = None
         super().__init__()
 
     def set_default_spark_session(self):
+        # TODO: if cluster_id is not None, use databricks-sdk for executing the command
         if self.spark is None or self.spark.is_stopped:
             try:
                 from databricks.connect.session import DatabricksSession as SparkSession
@@ -229,34 +166,60 @@ class DatabricksFunctionClient(BaseFunctionClient):
                 raise ValueError(
                     f"Failed to create function with sql body: {sql_function_body}"
                 ) from e
-            return self.retrieve_function(extract_function_name(sql_function_body))  # type: ignore
+            return self.get_function(extract_function_name(sql_function_body))  # type: ignore
         if function_info:
+            # TODO: support this after CreateFunction bug is fixed in databricks-sdk
+            raise NotImplementedError("Creating function using function_info is not supported yet.")
             return self.client.functions.create(function_info)
         raise ValueError("Either function_info or sql_function_body should be provided.")
 
     @override
-    def retrieve_function(
-        self, function_name: str, **kwargs: Any
-    ) -> Union["FunctionInfo", List["FunctionInfo"]]:
-        splits = function_name.split(".")
-        if len(splits) != 3:
+    def get_function(self, function_name: str, **kwargs: Any) -> "FunctionInfo":
+        """
+        Get a function by its name.
+
+        Args:
+            function_name (str): The name of the function to get.
+            kwargs: additional key-value pairs to include when getting the function.
+
+            ..Note::
+                The function name shouldn't be *, to get all functions in a catalog and schema,
+                please use list_functions API instead.
+
+        Returns:
+            FunctionInfo: The function info.
+        """
+        splits = validate_full_function_name(function_name)
+        if "*" in splits[-1]:
             raise ValueError(
-                f"Invalid function name: {function_name}, expecting format <catalog_name>.<schema_name>.<function_name>."
+                "function name cannot include *, to get all functions in a catalog and schema, "
+                "please use list_functions API instead."
             )
-        if splits[-1] == "*":
-            functions = self.client.functions.list(catalog_name=splits[0], schema_name=splits[1])
-            return list(functions)
-        return self.client.functions.get(function_name, include_browse=kwargs.get("include_browse"))
+        return self.client.functions.get(function_name)
+
+    @override
+    def list_functions(self, catalog: str, schema: str) -> List["FunctionInfo"]:
+        """
+        List functions in a catalog and schema.
+
+        Args:
+            catalog (str): The catalog name.
+            schema (str): The schema name.
+
+        Returns:
+            List[FunctionInfo]: The list of functions info.
+        """
+        return list(self.client.functions.list(catalog_name=catalog, schema_name=schema))
 
     @override
     def _validate_param_type(self, value: Any, param_info: "FunctionParameterInfo") -> None:
-        value_python_type = column_type_to_python_type(param_info.type_name)
+        value_python_type = column_type_to_python_type(param_info.type_name.value)
         if not isinstance(value, value_python_type):
             raise ValueError(
                 f"Parameter {param_info.name} should be of type {param_info.type_name.value} "
                 f"(corresponding python type {value_python_type}), but got {type(value)}"
             )
-        validate_param(value, param_info)
+        validate_param(value, param_info.type_name.value, param_info.type_text)
 
     @override
     def execute_function(
@@ -363,17 +326,16 @@ class DatabricksFunctionClient(BaseFunctionClient):
             ):
                 statement_id = response.statement_id
                 _logger.info("Retrying to get statement execution status...")
-                retry_cnt = 1
-                while retry_cnt < 7:
+                max_retries = 6
+                for retry_cnt in range(1, max_retries + 1):
                     time.sleep(2**retry_cnt)
                     _logger.info(f"Retry times: {retry_cnt}")
                     response = self.client.statement_execution.get_statement(statement_id)
                     if response.status is None or response.status.state != StatementState.PENDING:
                         break
-                    retry_cnt += 1
                 if response.status and response.status.state == StatementState.PENDING:
                     return FunctionExecutionResult(
-                        error=f"Statement execution is still pending after {retry_cnt-1} times. "
+                        error=f"Statement execution is still pending after {max_retries} times. "
                         "Please try increase the wait_timeout argument for executing the function."
                     )
             if response.status is None:
@@ -493,7 +455,7 @@ def get_execute_function_sql_stmt(
                     output_params.append(
                         StatementParameterListItem(name=param_info.name, value=param_value)
                     )
-                elif is_time_type(param_info.type_name):
+                elif is_time_type(param_info.type_name.value):
                     date_str = (
                         param_value if isinstance(param_value, str) else param_value.isoformat()
                     )
@@ -515,6 +477,14 @@ def get_execute_function_sql_stmt(
                         )
                     )
                 else:
+                    if param_info.type_name == ColumnTypeName.DECIMAL and isinstance(
+                        param_value, Decimal
+                    ):
+                        _logger.warning(
+                            f"Param {param_info.name} has decimal value {param_value}, it is converted to float "
+                            "for execution, please note that this conversion may lose precision."
+                        )
+                        param_value = float(param_value)
                     arg_clause += f":{param_info.name}"
                     output_params.append(
                         StatementParameterListItem(
@@ -526,24 +496,3 @@ def get_execute_function_sql_stmt(
     parts.append(")")
     statement = "".join(parts)
     return ParameterizedStatement(statement=statement, parameters=output_params)
-
-
-def is_time_type(column_type: "ColumnTypeName") -> bool:
-    from databricks.sdk.service.catalog import ColumnTypeName
-
-    return column_type in (
-        ColumnTypeName.DATE,
-        ColumnTypeName.TIMESTAMP,
-        ColumnTypeName.TIMESTAMP_NTZ,
-    )
-
-
-def convert_timedelta_to_interval_str(time_val: datetime.timedelta) -> str:
-    """
-    Convert a timedelta object to a string representing an interval in the format of 'INTERVAL "d hh:mm:ss.ssssss"'.
-    """
-    days = time_val.days
-    hours, remainder = divmod(time_val.seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    microseconds = time_val.microseconds
-    return f"INTERVAL '{days} {hours}:{minutes}:{seconds}.{microseconds}' DAY TO SECOND"
