@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any, NamedTuple
 import datetime
 import decimal
 
@@ -91,7 +91,13 @@ def convert_timedelta_to_interval_str(time_val: datetime.timedelta) -> str:
     return f"INTERVAL '{days} {hours}:{minutes}:{seconds}.{microseconds}' DAY TO SECOND"
 
 
-def validate_full_function_name(function_name: str) -> List[str]:
+class FullFunctionName(NamedTuple):
+    catalog_name: str
+    schema_name: str
+    function_name: str
+
+
+def validate_full_function_name(function_name: str) -> FullFunctionName:
     """
     Validate the full function name follows the format <catalog_name>.<schema_name>.<function_name>.
 
@@ -99,11 +105,11 @@ def validate_full_function_name(function_name: str) -> List[str]:
         function_name (str): The full function name.
 
     Returns:
-        List[str]: The splits of the full function name.
+        FullFunctionName: The parsed full function name.
     """
     splits = function_name.split(".")
     if len(splits) != 3:
         raise ValueError(
             f"Invalid function name: {function_name}, expecting format <catalog_name>.<schema_name>.<function_name>."
         )
-    return splits
+    return FullFunctionName(catalog_name=splits[0], schema_name=splits[1], function_name=splits[2])

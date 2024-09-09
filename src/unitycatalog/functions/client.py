@@ -4,7 +4,7 @@ import threading
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Dict, Literal, Optional, List
+from typing import Any, Dict, Literal, Optional
 from unitycatalog.functions.paged_list import PagedList
 
 _logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ class BaseFunctionClient(ABC):
         schema: str,
         max_results: Optional[int] = None,
         page_token: Optional[str] = None,
-    ) -> PagedList[List[Any]]:
+    ) -> PagedList[Any]:
         """
         List functions in a catalog and schema.
 

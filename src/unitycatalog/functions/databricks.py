@@ -242,8 +242,8 @@ class DatabricksFunctionClient(BaseFunctionClient):
         Returns:
             FunctionInfo: The function info.
         """
-        splits = validate_full_function_name(function_name)
-        if "*" in splits[-1]:
+        full_func_name = validate_full_function_name(function_name)
+        if "*" in full_func_name.function_name:
             raise ValueError(
                 "function name cannot include *, to get all functions in a catalog and schema, "
                 "please use list_functions API instead."
@@ -257,7 +257,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
         schema: str,
         max_results: Optional[int] = None,
         page_token: Optional[str] = None,
-    ) -> PagedList[List["FunctionInfo"]]:
+    ) -> PagedList["FunctionInfo"]:
         """
         List functions in a catalog and schema.
 
