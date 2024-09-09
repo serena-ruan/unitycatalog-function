@@ -24,8 +24,7 @@ include = [
 ]
 
 [tool.hatch.build.targets.wheel]
-include = ["src/**"]
-exclude = ["tests/**", "*.md"]
+packages = ["src/unitycatalog"]
 
 [project.optional-dependencies]
 dev = [

@@ -1,0 +1,4 @@
+pytest
+databricks-sdk>=0.32.0
+pandas
+databricks-connect

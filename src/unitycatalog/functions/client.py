@@ -89,16 +89,18 @@ class BaseFunctionClient(ABC):
             for param in input_params.parameters:
                 if param.name in parameters:
                     try:
-                        self._validate_param_type(parameters.pop(param.name), param)
+                        self._validate_param_type(parameters[param.name], param)
                     except ValueError as e:
                         invalid_params[param.name] = str(e)
                 elif param.parameter_default is None:
                     raise ValueError(f"Parameter {param.name} is required but not provided.")
             if invalid_params:
                 raise ValueError(f"Invalid parameters provided: {invalid_params}.")
-            if parameters:
+            if extra_params := parameters.keys() - {
+                param.name for param in input_params.parameters
+            }:
                 raise ValueError(
-                    f"Extra parameters provided that are not defined in the function's input parameters: {parameters}."
+                    f"Extra parameters provided that are not defined in the function's input parameters: {extra_params}."
                 )
         elif parameters:
             raise ValueError(

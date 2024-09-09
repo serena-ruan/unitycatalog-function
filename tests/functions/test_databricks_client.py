@@ -1,10 +1,10 @@
 import base64
 import datetime
 import logging
+import os
 import uuid
 from contextlib import contextmanager
 from decimal import Decimal
-from importlib.metadata import version
 from typing import Any, Callable, Dict, List, NamedTuple
 from unittest import mock
 
@@ -229,8 +229,8 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
 
 
 @pytest.mark.skipif(
-    version("databricks-connect") != "15.1.0",
-    reason="Creating function with sql body relies on databricks connect using serverless, which is only available in 15.1.0",
+    os.environ.get("TEST_IN_DATABRICKS").lower() != "true",
+    reason="This function test relies on connecting to a databricks workspace",
 )
 @pytest.mark.parametrize(
     "create_function",
@@ -258,8 +258,8 @@ def test_create_and_execute_function(
 
 
 @pytest.mark.skipif(
-    version("databricks-connect") != "15.1.0",
-    reason="Creating function with sql body relies on databricks connect using serverless, which is only available in 15.1.0",
+    os.environ.get("TEST_IN_DATABRICKS").lower() != "true",
+    reason="This function test relies on connecting to a databricks workspace",
 )
 def test_get_function(client: DatabricksFunctionClient):
     with generate_func_name_and_cleanup(client) as func_name:
@@ -298,8 +298,8 @@ AS $$
 
 
 @pytest.mark.skipif(
-    version("databricks-connect") != "15.1.0",
-    reason="Creating function with sql body relies on databricks connect using serverless, which is only available in 15.1.0",
+    os.environ.get("TEST_IN_DATABRICKS").lower() != "true",
+    reason="This function test relies on connecting to a databricks workspace",
 )
 def test_list_functions(client: DatabricksFunctionClient):
     function_infos = client.list_functions(catalog=CATALOG, schema=SCHEMA)

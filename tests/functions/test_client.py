@@ -81,7 +81,7 @@ def test_validate_input_params(client):
 
     with pytest.raises(
         ValueError,
-        match="Extra parameters provided that are not defined in the function's input parameters: {'param3': 'value'}.",
+        match="Extra parameters provided that are not defined in the function's input parameters: {'param3'}.",
     ):
         client.validate_input_params(
             input_params, {"param1": 1, "param2": "value", "param3": "value"}
