@@ -229,7 +229,7 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
 
 
 @pytest.mark.skipif(
-    os.environ.get("TEST_IN_DATABRICKS").lower() != "true",
+    os.environ.get("TEST_IN_DATABRICKS", "false").lower() != "true",
     reason="This function test relies on connecting to a databricks workspace",
 )
 @pytest.mark.parametrize(
@@ -258,7 +258,7 @@ def test_create_and_execute_function(
 
 
 @pytest.mark.skipif(
-    os.environ.get("TEST_IN_DATABRICKS").lower() != "true",
+    os.environ.get("TEST_IN_DATABRICKS", "false").lower() != "true",
     reason="This function test relies on connecting to a databricks workspace",
 )
 def test_get_function(client: DatabricksFunctionClient):
@@ -298,7 +298,7 @@ AS $$
 
 
 @pytest.mark.skipif(
-    os.environ.get("TEST_IN_DATABRICKS").lower() != "true",
+    os.environ.get("TEST_IN_DATABRICKS", "false").lower() != "true",
     reason="This function test relies on connecting to a databricks workspace",
 )
 def test_list_functions(client: DatabricksFunctionClient):
