@@ -40,7 +40,7 @@ _logger = logging.getLogger(__name__)
 @pytest.fixture
 def client() -> DatabricksFunctionClient:
     with mock.patch(
-        "unitycatalog.functions.databricks.get_default_databricks_workspace_client",
+        "unitycatalog.ai.databricks.get_default_databricks_workspace_client",
         return_value=mock.Mock(),
     ):
         return DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
