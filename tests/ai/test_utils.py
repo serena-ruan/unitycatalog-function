@@ -1,6 +1,6 @@
 import pytest
 import datetime
-from unitycatalog.functions.utils import (
+from unitycatalog.ai.utils import (
     column_type_to_python_type,
     convert_timedelta_to_interval_str,
     validate_full_function_name,

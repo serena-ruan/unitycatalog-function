@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 import pytest
 from typing_extensions import override
 
-from unitycatalog.functions.client import (
+from unitycatalog.ai.client import (
     BaseFunctionClient,
     get_uc_function_client,
     set_uc_function_client,
