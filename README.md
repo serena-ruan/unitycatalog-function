@@ -1,16 +1,16 @@
-## Unity Catalog function library
+## Unity Catalog AI library
 
-The Unity Catalog function library provides convenient APIs to interact with Unity Catalog functions, including functions creation, retrieval and execution.
+The Unity Catalog AI library provides convenient APIs to interact with Unity Catalog functions, including functions creation, retrieval and execution.
 The library includes clients for interacting with both the Open-Source Unity Catalog server and the Databricks-managed Unity Catalog service.
 
 ## Installation
 
 ```sh
 # install from the source
-pip install git+ssh://git@github.com/serena-ruan/unitycatalog-functions.git
+pip install git+ssh://git@github.com/serena-ruan/unitycatalog-ai.git
 ```
 > [!NOTE]
-> Once this package is published to PyPI, users can install via `pip install unitycatalog-functions`
+> Once this package is published to PyPI, users can install via `pip install unitycatalog-ai`
 
 
 ## Get started
@@ -28,7 +28,7 @@ To use Databricks-managed Unity Catalog with this package, follow the [instructi
 
 #### Client initialization
 ```python
-from unitycatalog.functions.databricks import DatabricksFunctionClient
+from unitycatalog.ai.databricks import DatabricksFunctionClient
 
 client = DatabricksFunctionClient(
     warehouse_id="..." # replace with the warehouse_id

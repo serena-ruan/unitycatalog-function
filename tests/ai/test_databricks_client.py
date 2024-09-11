@@ -21,7 +21,7 @@ from databricks.sdk.service.catalog import (
     FunctionParameterInfos,
 )
 
-from unitycatalog.functions.databricks import (
+from unitycatalog.ai.databricks import (
     DEFAULT_EXECUTE_FUNCTION_ARGS,
     EXECUTE_FUNCTION_ARG_NAME,
     DatabricksFunctionClient,

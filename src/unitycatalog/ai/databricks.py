@@ -10,15 +10,15 @@ from decimal import Decimal
 
 from typing_extensions import override
 
-from unitycatalog.functions.client import BaseFunctionClient, FunctionExecutionResult
-from unitycatalog.functions.utils import (
+from unitycatalog.ai.client import BaseFunctionClient, FunctionExecutionResult
+from unitycatalog.ai.utils import (
     column_type_to_python_type,
     convert_timedelta_to_interval_str,
     is_time_type,
     validate_param,
     validate_full_function_name,
 )
-from unitycatalog.functions.paged_list import PagedList
+from unitycatalog.ai.paged_list import PagedList
 
 if TYPE_CHECKING:
     from databricks.sdk import WorkspaceClient
