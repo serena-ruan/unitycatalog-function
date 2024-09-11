@@ -1,7 +1,15 @@
-*.vscode
-__pycache__
-*.egg-info/
+# test
 .pytest_cache/
+
+# Byte-compiled files
+__pycache__
+
+# Editor files
+*.vscode
 
 # Mac
 .DS_Store
+
+# packaging
+dist/
+*.egg-info/
