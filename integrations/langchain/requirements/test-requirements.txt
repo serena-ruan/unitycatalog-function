@@ -1,0 +1,8 @@
+unitycatalog-ai==0.0.1
+langchain>=0.2.0
+langchain-community>=0.2.0
+pytest
+typing_extensions
+# temp needed before unitycatalog-ai[databricks] is released
+databricks-sdk>=0.32.0
+databricks-connect

@@ -55,3 +55,29 @@ jobs:
         run: |
           pip install 'pydantic>=2'
           pytest tests/ai/
+
+  langchain_test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10']
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          # for installing unitycatalog-ai
+          pip install .
+          cd integrations/langchain
+          python -m pip install --upgrade pip
+          pip install .
+          pip install -r requirements/test-requirements.txt
+      - name: Run tests
+        run: |
+          pytest tests
+
