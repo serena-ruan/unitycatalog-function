@@ -27,6 +27,11 @@ include = [
 packages = ["src/unitycatalog"]
 
 [project.optional-dependencies]
+databricks = [
+  "databricks-sdk>=0.32.0",
+  "pandas",
+  "databricks-connect==15.1.0"
+]
 dev = [
   "hatch",
   "pytest",
@@ -35,6 +40,7 @@ dev = [
   "databricks-connect==15.1.0",
   "pandas",
   "ruff==0.6.4",
+  "pydantic",
 ]
 
 [tool.ruff]
