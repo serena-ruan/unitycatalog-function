@@ -129,10 +129,10 @@ def test_uc_type_json_to_pydantic_type(uc_type_json, expected_type_or_input):
         assert param_type == expected_type_or_input
 
 
-def generate_function_info(parameters: List[Dict]):
+def generate_function_info(parameters: List[Dict], catalog="catalog", schema="schema"):
     return FunctionInfo(
-        catalog_name="catalog",
-        schema_name="schema",
+        catalog_name=catalog,
+        schema_name=schema,
         name="test",
         input_params=FunctionParameterInfos(
             parameters=[FunctionParameterInfo(**param) for param in parameters]
@@ -406,3 +406,24 @@ def test_generate_function_input_params_schema(function_info, valid_inputs):
     pydantic_model = generate_function_input_params_schema(function_info)
     for data in valid_inputs:
         pydantic_model(**data)
+
+
+def test_generate_function_input_params_schema_with_non_ascii_chars():
+    function_info = generate_function_info(
+        [
+            {
+                "name": "x",
+                "type_text": "smallint",
+                "type_json": '{"name":"p","type":"short","nullable":true,"metadata":{}}',
+                "type_name": "SHORT",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 15,
+                "parameter_type": "PARAM",
+            }
+        ],
+        catalog="カタログ",
+        schema="スキーマ",
+    )
+    pydantic_model = generate_function_input_params_schema(function_info)
+    pydantic_model(**{"x": 123})
