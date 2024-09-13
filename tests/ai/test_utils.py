@@ -58,7 +58,7 @@ def test_convert_timedelta_to_interval_str(time_val, expected):
     [
         (
             {"type": "array", "elementType": "byte", "containsNull": True},
-            Union[List[Optional[int]], Tuple[Optional[int]]],
+            Union[List[Optional[int]], Tuple[Optional[int], ...]],
         ),
         (
             {
@@ -98,7 +98,7 @@ def test_convert_timedelta_to_interval_str(time_val, expected):
                 "valueType": {"type": "array", "elementType": "integer", "containsNull": True},
                 "valueContainsNull": True,
             },
-            Dict[str, Optional[Union[List[Optional[int]], Tuple[Optional[int]]]]],
+            Dict[str, Optional[Union[List[Optional[int]], Tuple[Optional[int], ...]]]],
         ),
         ("decimal(10,2)", Union[float, decimal.Decimal]),
         ("double", float),
@@ -114,7 +114,10 @@ def test_convert_timedelta_to_interval_str(time_val, expected):
                 "elementType": {"type": "array", "elementType": "string", "containsNull": False},
                 "containsNull": False,
             },
-            Union[List[Union[List[str], Tuple[str]]], Tuple[Union[List[str], Tuple[str]]]],
+            Union[
+                List[Union[List[str], Tuple[str, ...]]],
+                Tuple[Union[List[str], Tuple[str, ...]], ...],
+            ],
         ),
     ],
 )
@@ -140,6 +143,10 @@ def generate_function_info(parameters: List[Dict]):
 @pytest.mark.parametrize(
     ("function_info", "valid_inputs"),
     [
+        # create a function info with only one input parameter
+        # type_name represents the SQL type of the parameter
+        # type_json represents the detailed information about the parameter type
+        # test valid inputs are accepted by the function info
         (
             generate_function_info(
                 [

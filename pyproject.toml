@@ -8,7 +8,8 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-  "typing_extensions"
+  "typing_extensions",
+  "pydantic"
 ]
 
 [project.license]
@@ -37,10 +38,9 @@ dev = [
   "pytest",
   "databricks-sdk>=0.32.0",
   # Note: databricks-connect 15.1 is recommended for serverless, databricks-connect>=14.0.0 requires python>=3.10
-  "databricks-connect==15.1.0",
+  "databricks-connect",
   "pandas",
   "ruff==0.6.4",
-  "pydantic",
 ]
 
 [tool.ruff]

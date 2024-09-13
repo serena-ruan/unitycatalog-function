@@ -51,9 +51,9 @@ UC_TYPE_JSON_MAPPING = {
 
 
 def column_type_to_python_type(column_type: str) -> Any:
-    if column_type not in SQL_TYPE_TO_PYTHON_TYPE_MAPPING:
-        raise ValueError(f"Unsupported column type: {column_type}")
-    return SQL_TYPE_TO_PYTHON_TYPE_MAPPING[column_type]
+    if t := SQL_TYPE_TO_PYTHON_TYPE_MAPPING.get(column_type):
+        return t
+    raise ValueError(f"Unsupported column type: {column_type}")
 
 
 def is_time_type(column_type: str) -> bool:
@@ -146,6 +146,18 @@ def validate_full_function_name(function_name: str) -> FullFunctionName:
 def uc_type_json_to_pydantic_type(uc_type_json: Union[str, Dict]) -> Type:
     """
     Convert Unity Catalog type json to Pydantic type.
+
+    For simple types, the type json is a string representing the type name. For example:
+        "STRING" -> str
+        "INTEGER" -> int
+    For complex types, the type json is a dictionary representing the type. For example:
+        {"type": "array", "elementType": "STRING", "containsNull": true} -> List[Optional[str]]
+
+    Args:
+        uc_type_json (Union[str, Dict]): The Unity Catalog function input parameter type json.
+
+    Returns:
+        Type: The python type or Pydantic type.
     """
     if isinstance(uc_type_json, str):
         type_name = uc_type_json.upper()
@@ -160,13 +172,13 @@ def uc_type_json_to_pydantic_type(uc_type_json: Union[str, Dict]) -> Type:
                 f"types are: {UC_TYPE_JSON_MAPPING.keys()}"
             )
     if isinstance(uc_type_json, dict):
-        tpe = uc_type_json["type"]
-        if tpe == "array":
+        type_ = uc_type_json["type"]
+        if type_ == "array":
             element_type = uc_type_json_to_pydantic_type(uc_type_json["elementType"])
             if uc_type_json["containsNull"]:
                 element_type = Optional[element_type]
-            return Union[List[element_type], Tuple[element_type]]
-        elif tpe == "map":
+            return Union[List[element_type], Tuple[element_type, ...]]
+        elif type_ == "map":
             key_type = uc_type_json["keyType"]
             if key_type != "string":
                 raise TypeError(f"Only support STRING key type for MAP but got {key_type}.")
@@ -174,7 +186,7 @@ def uc_type_json_to_pydantic_type(uc_type_json: Union[str, Dict]) -> Type:
             if uc_type_json["valueContainsNull"]:
                 value_type = Optional[value_type]
             return Dict[str, value_type]
-        elif tpe == "struct":
+        elif type_ == "struct":
             fields = {}
             for field in uc_type_json["fields"]:
                 field_type = uc_type_json_to_pydantic_type(field["type"])
@@ -185,7 +197,7 @@ def uc_type_json_to_pydantic_type(uc_type_json: Union[str, Dict]) -> Type:
                 else:
                     fields[field["name"]] = (field_type, Field(..., description=comment))
             uc_type_json_str = json.dumps(uc_type_json, sort_keys=True)
-            type_hash = md5(uc_type_json_str.encode()).hexdigest()[:8]
+            type_hash = md5(uc_type_json_str.encode(), usedforsecurity=False).hexdigest()[:8]
             return create_model(f"Struct_{type_hash}", **fields)
     raise TypeError(f"Unknown type {uc_type_json}.")
 
@@ -239,16 +251,15 @@ def param_info_to_pydantic_type(param_info: Any) -> PydanticField:
     type_json = json.loads(param_info.type_json)
     nullable = type_json.get("nullable")
     pydantic_type = uc_type_json_to_pydantic_type(type_json["type"])
-    if nullable:
-        pydantic_type = Optional[pydantic_type]
     default = None
     description = param_info.comment or ""
     if param_info.parameter_default:
-        pydantic_type = Optional[pydantic_type]
         # Note: DEFAULT is supported for LANGUAGE SQL only.
         # TODO: verify this for all types
         default = json.loads(param_info.parameter_default)
         description = f"{description} (Default: {param_info.parameter_default})"
+    elif nullable:
+        pydantic_type = Optional[pydantic_type]
     return PydanticField(
         pydantic_type=pydantic_type,
         description=description,
