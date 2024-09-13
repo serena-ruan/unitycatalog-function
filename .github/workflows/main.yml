@@ -31,11 +31,9 @@ jobs:
           pip install .[dev]
       - name: Run tests with pydantic v1
         run: |
-          # test pydantic v1
           pip install 'pydantic<2'
           pytest tests/ai/
       - name: Run tests with pydantic v2
         run: |
-          # test pydantic v2
           pip install 'pydantic>=2'
           pytest tests/ai/

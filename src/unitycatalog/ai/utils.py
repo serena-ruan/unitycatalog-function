@@ -143,7 +143,7 @@ def validate_full_function_name(function_name: str) -> FullFunctionName:
     return FullFunctionName(catalog_name=splits[0], schema_name=splits[1], function_name=splits[2])
 
 
-def uc_type_json_to_pydantic_type(uc_type_json: Union[str, Dict]) -> Type:
+def uc_type_json_to_pydantic_type(uc_type_json: Union[str, Dict[str, Any]]) -> Type:
     """
     Convert Unity Catalog type json to Pydantic type.
 
@@ -154,7 +154,7 @@ def uc_type_json_to_pydantic_type(uc_type_json: Union[str, Dict]) -> Type:
         {"type": "array", "elementType": "STRING", "containsNull": true} -> List[Optional[str]]
 
     Args:
-        uc_type_json (Union[str, Dict]): The Unity Catalog function input parameter type json.
+        uc_type_json: The Unity Catalog function input parameter type json.
 
     Returns:
         Type: The python type or Pydantic type.
