@@ -1,5 +1,6 @@
 import inspect
 import json
+import base64
 import logging
 import re
 import time
@@ -537,6 +538,8 @@ def get_execute_function_sql_stmt(
                         )
                     )
                 elif param_info.type_name == ColumnTypeName.BINARY:
+                    if isinstance(param_value, bytes):
+                        param_value = base64.b64encode(param_value).decode("utf-8")
                     # Use ubbase64 to restore binary values.
                     arg_clause += f"unbase64(:{param_info.name})"
                     output_params.append(

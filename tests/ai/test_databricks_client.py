@@ -116,7 +116,11 @@ $$
     return FunctionInputOutput(
         sql_body=sql_body,
         func_name=f"{CATALOG}.{SCHEMA}.{func_name}",
-        inputs=[{"s": base64.b64encode(b"Hello").decode("utf-8")}],
+        inputs=[
+            {"s": base64.b64encode(b"Hello").decode("utf-8")},
+            {"s": "SGVsbG8="},
+            {"s": b"Hello"},
+        ],
         output="Hello",
     )
 
@@ -588,6 +592,19 @@ def test_validate_param_type_errors(client: DatabricksFunctionClient):
                 "param",
                 type_name=ColumnTypeName.INTERVAL,
                 type_text="interval day to second",
+                position=0,
+            ),
+        )
+
+    with pytest.raises(
+        ValueError, match=r"The string input for column type BINARY must be base64 encoded"
+    ):
+        client._validate_param_type(
+            "some_string",
+            FunctionParameterInfo(
+                "param",
+                type_name=ColumnTypeName.BINARY,
+                type_text="binary",
                 position=0,
             ),
         )
