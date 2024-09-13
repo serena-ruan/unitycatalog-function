@@ -33,7 +33,7 @@ jobs:
         run: |
           hatch build
           # List distribution files and check their file sizes
-          ls -lh dist  
+          ls -lh dist
           # Set step outputs
           sdist_path=$(find dist -type f -name "*.tar.gz")
           wheel_path=$(find dist -type f -name "*.whl")
