@@ -73,10 +73,7 @@ jobs:
         run: |
           # for installing unitycatalog-ai
           pip install .
-          cd integrations/langchain
-          python -m pip install --upgrade pip
-          pip install .
-          pip install -r requirements/test-requirements.txt
+          pip install integrations/langchain[dev]
       - name: Run tests
         run: |
           pytest tests
