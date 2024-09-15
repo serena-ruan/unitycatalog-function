@@ -4,7 +4,6 @@ from unitycatalog.ai.client import (
     get_uc_function_client,
     FunctionExecutionResult,
 )
-import os
 from unitycatalog.ai.databricks import DatabricksFunctionClient
 from unitycatalog_ai_langchain.toolkit import LangchainToolkit
 import json
@@ -18,6 +17,7 @@ from databricks.sdk.service.catalog import (
     FunctionParameterInfo,
     FunctionParameterInfos,
 )
+from ....tests.helper_functions import requires_databricks
 
 
 @pytest.fixture
@@ -73,10 +73,7 @@ def set_default_client(client: DatabricksFunctionClient):
     set_uc_function_client(None)
 
 
-@pytest.mark.skipif(
-    os.environ.get("TEST_IN_DATABRICKS", "false").lower() != "true",
-    reason="This function test relies on connecting to a databricks workspace",
-)
+@requires_databricks
 def test_toolkit_e2e(set_default_client):
     client = get_uc_function_client()
     with create_function_and_cleanup(client) as func_obj:
@@ -95,10 +92,7 @@ def test_toolkit_e2e(set_default_client):
         assert func_obj.full_function_name in [t.name for t in toolkit.tools]
 
 
-@pytest.mark.skipif(
-    os.environ.get("TEST_IN_DATABRICKS", "false").lower() != "true",
-    reason="This function test relies on connecting to a databricks workspace",
-)
+@requires_databricks
 def test_multiple_toolkits(set_default_client):
     client = get_uc_function_client()
     with create_function_and_cleanup(client) as func_obj:

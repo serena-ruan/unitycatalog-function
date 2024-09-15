@@ -1,7 +1,6 @@
 import base64
 import datetime
 import logging
-import os
 import uuid
 from contextlib import contextmanager
 from decimal import Decimal
@@ -27,6 +26,7 @@ from unitycatalog.ai.databricks import (
     DatabricksFunctionClient,
     extract_function_name,
 )
+from tests.helper_functions import requires_databricks
 
 CATALOG = "ml"
 SCHEMA = "serena_uc_test"
@@ -236,10 +236,7 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
     )
 
 
-@pytest.mark.skipif(
-    os.environ.get("TEST_IN_DATABRICKS", "false").lower() != "true",
-    reason="This function test relies on connecting to a databricks workspace",
-)
+@requires_databricks
 @pytest.mark.parametrize(
     "create_function",
     [
@@ -265,10 +262,7 @@ def test_create_and_execute_function(
             assert result.value == function_sample.output
 
 
-@pytest.mark.skipif(
-    os.environ.get("TEST_IN_DATABRICKS", "false").lower() != "true",
-    reason="This function test relies on connecting to a databricks workspace",
-)
+@requires_databricks
 def test_get_function(client: DatabricksFunctionClient):
     with generate_func_name_and_cleanup(client) as func_name:
         full_func_name = f"{CATALOG}.{SCHEMA}.{func_name}"
@@ -305,10 +299,7 @@ AS $$
 """
 
 
-@pytest.mark.skipif(
-    os.environ.get("TEST_IN_DATABRICKS", "false").lower() != "true",
-    reason="This function test relies on connecting to a databricks workspace",
-)
+@requires_databricks
 def test_list_functions(client: DatabricksFunctionClient):
     function_infos = client.list_functions(catalog=CATALOG, schema=SCHEMA)
     existing_function_num = len(function_infos)  # type: ignore
