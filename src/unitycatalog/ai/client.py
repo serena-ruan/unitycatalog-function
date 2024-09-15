@@ -145,6 +145,13 @@ class BaseFunctionClient(ABC):
         Internal logic for executing a UC function.
         """
 
+    @abstractmethod
+    def to_dict(self):
+        """
+        Store the client configuration in a dictionary.
+        Sensitive information should be excluded.
+        """
+
 
 # TODO: update BaseFunctionClient to Union[BaseFunctionClient, AsyncBaseFunctionClient] after async client is supported
 def get_uc_function_client() -> Optional[BaseFunctionClient]:

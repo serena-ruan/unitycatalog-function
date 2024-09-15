@@ -4,7 +4,7 @@ import os
 from typing import Any, Dict, List, Optional
 
 from langchain_core.pydantic_v1 import BaseModel, Field, root_validator
-from langchain_core.tools import StructuredTool, Tool
+from langchain_core.tools import StructuredTool
 from unitycatalog.ai.client import BaseFunctionClient, get_uc_function_client
 from unitycatalog.ai.utils import (
     generate_function_input_params_schema,
@@ -37,13 +37,19 @@ def validate_or_set_default_client(client: Optional[BaseFunctionClient] = None):
     return client
 
 
+class UnityCatalogTool(StructuredTool):
+    client_config: Dict[str, Any] = Field(
+        description="Configuration of the client for managing the tool",
+    )
+
+
 class LangchainToolkit(BaseModel):
     function_names: List[str] = Field(
         default_factory=list,
         description="The list of function names in the form of 'catalog.schema.function'",
     )
 
-    tools_dict: Dict[str, Tool] = Field(default_factory=dict)
+    tools_dict: Dict[str, UnityCatalogTool] = Field(default_factory=dict)
 
     client: Optional[BaseFunctionClient] = Field(
         default=None,
@@ -92,7 +98,7 @@ class LangchainToolkit(BaseModel):
         client: Optional[BaseFunctionClient] = None,
         function_name: Optional[str] = None,
         function_info: Optional[Any] = None,
-    ) -> StructuredTool:
+    ) -> UnityCatalogTool:
         """
         Convert a UC function to Langchain StructuredTool
 
@@ -123,13 +129,14 @@ class LangchainToolkit(BaseModel):
             )
             return result.to_json()
 
-        return StructuredTool(
+        return UnityCatalogTool(
             name=get_tool_name(function_name),
             description=function_info.comment or "",
             func=func,
             args_schema=generate_function_input_params_schema(function_info),
+            client_config=client.to_dict(),
         )
 
     @property
-    def tools(self) -> List[Tool]:
+    def tools(self) -> List[UnityCatalogTool]:
         return list(self.tools_dict.values())

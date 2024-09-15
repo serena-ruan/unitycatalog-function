@@ -473,6 +473,20 @@ class DatabricksFunctionClient(BaseFunctionClient):
         # TODO: support serverless
         raise ValueError("warehouse_id is required for executing UC functions in Databricks")
 
+    @override
+    def to_dict(self):
+        return {
+            # TODO: workspaceClient related config
+            "warehouse_id": self.warehouse_id,
+            "cluster_id": self.cluster_id,
+            "profile": self.profile,
+        }
+
+    @classmethod
+    def from_dict(cls, config: Dict[str, Any]):
+        accept_keys = ["warehouse_id", "cluster_id", "profile"]
+        return cls(**{k: v for k, v in config.items() if k in accept_keys})
+
 
 def is_scalar(function: "FunctionInfo") -> bool:
     from databricks.sdk.service.catalog import ColumnTypeName

@@ -83,6 +83,7 @@ def test_toolkit_e2e(set_default_client):
         tool = tools[0]
         assert tool.name == func_obj.full_function_name
         assert tool.description == func_obj.comment
+        assert tool.client_config == client.to_dict()
         tool.args_schema(**{"code": "print(1)"})
         result = json.loads(tool.func(code="print(1)"))["value"]
         assert result == "1\n"
