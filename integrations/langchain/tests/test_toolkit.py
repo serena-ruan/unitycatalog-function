@@ -17,7 +17,7 @@ from databricks.sdk.service.catalog import (
     FunctionParameterInfo,
     FunctionParameterInfos,
 )
-from ....tests.helper_functions import requires_databricks
+from tests.helper_functions import requires_databricks
 
 
 @pytest.fixture
