@@ -70,8 +70,8 @@ class LangchainToolkit(BaseModel):
             if name not in tools_dict:
                 full_func_name = validate_full_function_name(name)
                 if full_func_name.function_name == "*":
-                    token = "None"
-                    while token is not None:
+                    token = None
+                    while True:
                         functions = client.list_functions(
                             catalog=full_func_name.catalog_name,
                             schema=full_func_name.schema_name,
@@ -80,7 +80,7 @@ class LangchainToolkit(BaseModel):
                                     "UC_LIST_FUNCTIONS_MAX_RESULTS", UC_LIST_FUNCTIONS_MAX_RESULTS
                                 )
                             ),
-                            page_token=token if token != "None" else None,
+                            page_token=token,
                         )
                         for f in functions:
                             if f.full_name not in tools_dict:
@@ -88,6 +88,8 @@ class LangchainToolkit(BaseModel):
                                     function_info=f
                                 )
                         token = functions.token
+                        if token is None:
+                            break
                 else:
                     tools_dict[name] = cls.uc_function_to_langchain_tool(function_name=name)
         values["tools_dict"] = tools_dict
