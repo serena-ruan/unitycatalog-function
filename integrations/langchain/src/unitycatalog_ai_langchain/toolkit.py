@@ -13,7 +13,7 @@ from unitycatalog.ai.utils import (
 
 _logger = logging.getLogger(__name__)
 
-UC_LIST_FUNCTIONS_MAX_RESULTS = 100
+UC_LIST_FUNCTIONS_MAX_RESULTS = "100"
 
 
 def get_tool_name(func_name: str) -> str:
@@ -75,8 +75,10 @@ class LangchainToolkit(BaseModel):
                         functions = client.list_functions(
                             catalog=full_func_name.catalog_name,
                             schema=full_func_name.schema_name,
-                            max_results=os.environ.get(
-                                "UC_LIST_FUNCTIONS_MAX_RESULTS", UC_LIST_FUNCTIONS_MAX_RESULTS
+                            max_results=int(
+                                os.environ.get(
+                                    "UC_LIST_FUNCTIONS_MAX_RESULTS", UC_LIST_FUNCTIONS_MAX_RESULTS
+                                )
                             ),
                             page_token=token if token != "None" else None,
                         )
