@@ -25,7 +25,7 @@ from tests.helper_functions import requires_databricks
 from unitycatalog.ai.databricks import (
     DEFAULT_EXECUTE_FUNCTION_ARGS,
     EXECUTE_FUNCTION_ARG_NAME,
-    UNITICATALOG_AI_CLIENT_EXECUTION_TIMEOUT,
+    UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT,
     DatabricksFunctionClient,
     extract_function_name,
 )
@@ -266,7 +266,7 @@ def test_create_and_execute_function(
 
 @requires_databricks
 def test_execute_function_with_timeout(client: DatabricksFunctionClient, monkeypatch):
-    monkeypatch.setenv(UNITICATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "5")
+    monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "5")
     with generate_func_name_and_cleanup(client) as func_name:
         full_func_name = f"{CATALOG}.{SCHEMA}.{func_name}"
         sql_body = f"""CREATE FUNCTION {full_func_name}()

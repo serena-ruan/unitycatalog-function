@@ -37,7 +37,7 @@ DEFAULT_EXECUTE_FUNCTION_ARGS = {
     "row_limit": 100,
     "byte_limit": 4096,
 }
-UNITICATALOG_AI_CLIENT_EXECUTION_TIMEOUT = "UNITICATALOG_AI_CLIENT_EXECUTION_TIMEOUT"
+UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT = "UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT"
 
 _logger = logging.getLogger(__name__)
 
@@ -412,7 +412,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
                 wait_time = 0
                 retry_cnt = 0
                 client_execution_timeout = int(
-                    os.environ.get(UNITICATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "120")
+                    os.environ.get(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "120")
                 )
                 while wait_time < client_execution_timeout:
                     wait = min(2**retry_cnt, client_execution_timeout - wait_time)
@@ -427,7 +427,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
                     return FunctionExecutionResult(
                         error=f"Statement execution is still pending after {wait_time} "
                         "seconds. Please try increase the wait_timeout argument for executing "
-                        f"the function or increase {UNITICATALOG_AI_CLIENT_EXECUTION_TIMEOUT} environment "
+                        f"the function or increase {UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT} environment "
                         "variable for increasing retrying time."
                     )
             if response.status is None:
