@@ -265,7 +265,7 @@ def test_create_and_execute_function(
             assert result.value == function_sample.output
 
 
-# @requires_databricks
+@requires_databricks
 def test_execute_function_with_timeout(client: DatabricksFunctionClient, monkeypatch):
     monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "5")
     with generate_func_name_and_cleanup(client) as func_name:
