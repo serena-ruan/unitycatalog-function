@@ -1,35 +1,35 @@
+import base64
 import inspect
 import json
-import base64
 import logging
+import os
 import re
 import time
 from dataclasses import dataclass
+from decimal import Decimal
 from io import StringIO
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
-from decimal import Decimal
 
 from typing_extensions import override
 
 from unitycatalog.ai.client import BaseFunctionClient, FunctionExecutionResult
+from unitycatalog.ai.paged_list import PagedList
 from unitycatalog.ai.utils import (
     column_type_to_python_type,
     convert_timedelta_to_interval_str,
     is_time_type,
-    validate_param,
     validate_full_function_name,
+    validate_param,
 )
-from unitycatalog.ai.paged_list import PagedList
 
 if TYPE_CHECKING:
     from databricks.sdk import WorkspaceClient
-    from databricks.sdk.service.sql import StatementState
     from databricks.sdk.service.catalog import (
         CreateFunction,
         FunctionInfo,
         FunctionParameterInfo,
     )
-    from databricks.sdk.service.sql import StatementParameterListItem
+    from databricks.sdk.service.sql import StatementParameterListItem, StatementState
 
 EXECUTE_FUNCTION_ARG_NAME = "__execution_args__"
 DEFAULT_EXECUTE_FUNCTION_ARGS = {
@@ -37,6 +37,8 @@ DEFAULT_EXECUTE_FUNCTION_ARGS = {
     "row_limit": 100,
     "byte_limit": 4096,
 }
+UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT = "UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT"
+DEFAULT_UC_AI_CLIENT_EXECUTION_TIMEOUT = "120"
 
 _logger = logging.getLogger(__name__)
 
@@ -189,7 +191,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
                     ) from e
             elif self.cluster_id:
                 _logger.info("Using databricks cluster to create function.")
-                from databricks.sdk.service.compute import Language, ContextStatus, CommandStatus
+                from databricks.sdk.service.compute import CommandStatus, ContextStatus, Language
 
                 context_result = self.client._command_execution.create_and_wait(
                     cluster_id=self.cluster_id, language=Language.SQL
@@ -408,17 +410,29 @@ class DatabricksFunctionClient(BaseFunctionClient):
             if response.status and job_pending(response.status.state) and response.statement_id:
                 statement_id = response.statement_id
                 _logger.info("Retrying to get statement execution status...")
-                max_retries = 6
-                for retry_cnt in range(1, max_retries + 1):
-                    time.sleep(2**retry_cnt)
+                wait_time = 0
+                retry_cnt = 0
+                client_execution_timeout = int(
+                    os.environ.get(
+                        UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT,
+                        DEFAULT_UC_AI_CLIENT_EXECUTION_TIMEOUT,
+                    )
+                )
+                while wait_time < client_execution_timeout:
+                    wait = min(2**retry_cnt, client_execution_timeout - wait_time)
+                    time.sleep(wait)
                     _logger.info(f"Retry times: {retry_cnt}")
                     response = self.client.statement_execution.get_statement(statement_id)
                     if response.status is None or not job_pending(response.status.state):
                         break
+                    wait_time += wait
+                    retry_cnt += 1
                 if response.status and job_pending(response.status.state):
                     return FunctionExecutionResult(
-                        error=f"Statement execution is still pending after {max_retries} times. "
-                        "Please try increase the wait_timeout argument for executing the function."
+                        error=f"Statement execution is still pending after {wait_time} "
+                        "seconds. Please increase the wait_timeout argument for executing "
+                        f"the function or increase {UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT} environment "
+                        f"variable for increasing retrying time, default value is {DEFAULT_UC_AI_CLIENT_EXECUTION_TIMEOUT} seconds."
                     )
             if response.status is None:
                 return FunctionExecutionResult(error=f"Statement execution failed: {response}")
@@ -472,6 +486,12 @@ class DatabricksFunctionClient(BaseFunctionClient):
 
         # TODO: support serverless
         raise ValueError("warehouse_id is required for executing UC functions in Databricks")
+
+    @override
+    def validate_input_params(self, input_params: Any, parameters: Dict[str, Any]) -> None:
+        super().validate_input_params(
+            input_params, {k: v for k, v in parameters.items() if k != EXECUTE_FUNCTION_ARG_NAME}
+        )
 
     @override
     def to_dict(self):
