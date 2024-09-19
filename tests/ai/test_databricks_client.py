@@ -1,13 +1,13 @@
 import base64
 import datetime
 import logging
+import time
 import uuid
 from contextlib import contextmanager
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, NamedTuple
 from unittest import mock
 
-import time
 import pytest
 from databricks.sdk.service.catalog import (
     ColumnTypeName,
@@ -21,13 +21,14 @@ from databricks.sdk.service.catalog import (
     FunctionParameterInfos,
 )
 
+from tests.helper_functions import requires_databricks
 from unitycatalog.ai.databricks import (
     DEFAULT_EXECUTE_FUNCTION_ARGS,
     EXECUTE_FUNCTION_ARG_NAME,
+    UNITICATALOG_AI_CLIENT_EXECUTION_TIMEOUT,
     DatabricksFunctionClient,
     extract_function_name,
 )
-from tests.helper_functions import requires_databricks
 
 CATALOG = "ml"
 SCHEMA = "serena_uc_test"
@@ -265,7 +266,7 @@ def test_create_and_execute_function(
 
 @requires_databricks
 def test_execute_function_with_timeout(client: DatabricksFunctionClient, monkeypatch):
-    monkeypatch.setenv("CLIENT_EXECUTION_TIMEOUT", "5")
+    monkeypatch.setenv(UNITICATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "5")
     with generate_func_name_and_cleanup(client) as func_name:
         full_func_name = f"{CATALOG}.{SCHEMA}.{func_name}"
         sql_body = f"""CREATE FUNCTION {full_func_name}()
