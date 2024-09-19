@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import Any, Callable, Dict, List, NamedTuple
 from unittest import mock
 
+import time
 import pytest
 from databricks.sdk.service.catalog import (
     ColumnTypeName,
@@ -260,6 +261,37 @@ def test_create_and_execute_function(
         for input_example in function_sample.inputs:
             result = client.execute_function(function_sample.func_name, input_example)
             assert result.value == function_sample.output
+
+
+@requires_databricks
+def test_execute_function_with_timeout(client: DatabricksFunctionClient, monkeypatch):
+    monkeypatch.setenv("CLIENT_EXECUTION_TIMEOUT", "5")
+    with generate_func_name_and_cleanup(client) as func_name:
+        full_func_name = f"{CATALOG}.{SCHEMA}.{func_name}"
+        sql_body = f"""CREATE FUNCTION {full_func_name}()
+RETURNS STRING
+LANGUAGE PYTHON
+AS $$
+    import time
+
+    time.sleep(100)
+    return "10"
+$$
+"""
+        client.create_function(sql_function_body=sql_body)
+        time1 = time.time()
+        result = client.execute_function(full_func_name)
+        time_total1 = time.time() - time1
+        assert result.error.startswith("Statement execution is still pending after 5 seconds")
+
+        time2 = time.time()
+        result = client.execute_function(
+            full_func_name, {EXECUTE_FUNCTION_ARG_NAME: {"wait_timeout": "10s"}}
+        )
+        time_total2 = time.time() - time2
+        assert result.error.startswith("Statement execution is still pending after 5 seconds")
+        # default wait_timeout is 30s
+        assert abs(abs(time_total2 - time_total1) - 20) < 5
 
 
 @requires_databricks
