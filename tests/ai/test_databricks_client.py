@@ -25,6 +25,7 @@ from tests.helper_functions import requires_databricks
 from unitycatalog.ai.databricks import (
     DEFAULT_EXECUTE_FUNCTION_ARGS,
     EXECUTE_FUNCTION_ARG_NAME,
+    UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT,
     UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT,
     DatabricksFunctionClient,
     extract_function_name,
@@ -46,6 +47,11 @@ def client() -> DatabricksFunctionClient:
         return_value=mock.Mock(),
     ):
         return DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
+
+
+@pytest.fixture
+def client_using_serverless() -> DatabricksFunctionClient:
+    return DatabricksFunctionClient()
 
 
 def random_func_name():
@@ -93,17 +99,17 @@ $$
 
 def function_with_array_input(func_name: str) -> FunctionInputOutput:
     sql_body = f"""CREATE FUNCTION {CATALOG}.{SCHEMA}.{func_name}(s ARRAY<BYTE>)
-RETURNS ARRAY<STRING>
+RETURNS STRING
 LANGUAGE PYTHON
 AS $$
-    return [str(i) for i in s]
+    return ",".join(str(i) for i in s)
 $$
 """
     return FunctionInputOutput(
         sql_body=sql_body,
         func_name=f"{CATALOG}.{SCHEMA}.{func_name}",
         inputs=[{"s": [1, 2, 3]}],
-        output='["1","2","3"]',
+        output="1,2,3",
     )
 
 
@@ -262,6 +268,51 @@ def test_create_and_execute_function(
         for input_example in function_sample.inputs:
             result = client.execute_function(function_sample.func_name, input_example)
             assert result.value == function_sample.output
+
+
+@requires_databricks
+@pytest.mark.parametrize(
+    "create_function",
+    [
+        function_with_array_input,
+        function_with_struct_input,
+        function_with_binary_input,
+        function_with_interval_input,
+        function_with_timestamp_input,
+        function_with_date_input,
+        function_with_map_input,
+        function_with_decimal_input,
+        function_with_table_output,
+    ],
+)
+def test_create_and_execute_function_using_serverless(
+    client_using_serverless: DatabricksFunctionClient,
+    create_function: Callable[[str], FunctionInputOutput],
+):
+    with generate_func_name_and_cleanup(client_using_serverless) as func_name:
+        function_sample = create_function(func_name)
+        client_using_serverless.create_function(sql_function_body=function_sample.sql_body)
+        for input_example in function_sample.inputs:
+            result = client_using_serverless.execute_function(
+                function_sample.func_name, input_example
+            )
+            assert result.value == function_sample.output
+
+
+@requires_databricks
+def test_execute_function_using_serverless_row_limit(
+    client_using_serverless: DatabricksFunctionClient,
+    monkeypatch,
+):
+    monkeypatch.setenv(UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT, "1")
+    with generate_func_name_and_cleanup(client_using_serverless) as func_name:
+        function_sample = function_with_table_output(func_name)
+        client_using_serverless.create_function(sql_function_body=function_sample.sql_body)
+        result = client_using_serverless.execute_function(
+            function_sample.func_name, function_sample.inputs[0]
+        )
+        assert result.value == "day_of_week,day\n1,2024-01-01\n"
+        assert result.truncated is True
 
 
 @requires_databricks

@@ -39,6 +39,9 @@ DEFAULT_EXECUTE_FUNCTION_ARGS = {
 }
 UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT = "UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT"
 DEFAULT_UC_AI_CLIENT_EXECUTION_TIMEOUT = "120"
+UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT = "UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT"
+DEFAULT_UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT = "100"
+
 
 _logger = logging.getLogger(__name__)
 
@@ -396,6 +399,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
                 )
 
         if self.warehouse_id:
+            _logger.info("Executing function using client warehouse_id.")
             parametrized_statement = get_execute_function_sql_stmt(function_info, parameters)
             response = self.client.statement_execution.execute_statement(
                 statement=parametrized_statement.statement,
@@ -484,8 +488,36 @@ class DatabricksFunctionClient(BaseFunctionClient):
                     format="CSV", value=csv_buffer.getvalue(), truncated=truncated
                 )
 
-        # TODO: support serverless
-        raise ValueError("warehouse_id is required for executing UC functions in Databricks")
+        else:
+            _logger.info("Using databricks connect to execute functions with serverless compute.")
+            try:
+                self.set_default_spark_session()
+                sql_command = get_execute_function_sql_command(function_info, parameters)
+                result = self.spark.sql(sqlQuery=sql_command)
+                if is_scalar(function_info):
+                    return FunctionExecutionResult(
+                        format="SCALAR", value=str(result.collect()[0][0])
+                    )
+                else:
+                    row_limit = int(
+                        os.environ.get(
+                            UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT,
+                            DEFAULT_UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT,
+                        )
+                    )
+                    truncated = False
+                    if result.count() > row_limit:
+                        truncated = True
+                    pdf = result.limit(row_limit).toPandas()
+                    csv_buffer = StringIO()
+                    pdf.to_csv(csv_buffer, index=False)
+                    return FunctionExecutionResult(
+                        format="CSV", value=csv_buffer.getvalue(), truncated=truncated
+                    )
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to execute function with function name: {function_info.full_name}"
+                ) from e
 
     @override
     def validate_input_params(self, input_params: Any, parameters: Dict[str, Any]) -> None:
@@ -620,3 +652,65 @@ def get_execute_function_sql_stmt(
     parts.append(")")
     statement = "".join(parts)
     return ParameterizedStatement(statement=statement, parameters=output_params)
+
+
+def get_execute_function_sql_command(function: "FunctionInfo", parameters: Dict[str, Any]) -> str:
+    from databricks.sdk.service.catalog import ColumnTypeName
+
+    sql_query = ""
+    if is_scalar(function):
+        sql_query += f"SELECT `{function.catalog_name}`.`{function.schema_name}`.`{function.name}`("
+    else:
+        sql_query += (
+            f"SELECT * FROM `{function.catalog_name}`.`{function.schema_name}`.`{function.name}`("
+        )
+
+    if parameters and function.input_params and function.input_params.parameters:
+        args: List[str] = []
+        use_named_args = False
+        for param_info in function.input_params.parameters:
+            if param_info.name not in parameters:
+                use_named_args = True
+            else:
+                arg_clause = ""
+                if use_named_args:
+                    arg_clause += f"{param_info.name} => "
+                param_value = parameters[param_info.name]
+                if param_info.type_name in (
+                    ColumnTypeName.ARRAY,
+                    ColumnTypeName.MAP,
+                    ColumnTypeName.STRUCT,
+                ):
+                    json_value_str = json.dumps(param_value)
+                    arg_clause += f"from_json('{json_value_str}', '{param_info.type_text}')"
+                elif param_info.type_name == ColumnTypeName.BINARY:
+                    if isinstance(param_value, bytes):
+                        param_value = base64.b64encode(param_value).decode("utf-8")
+                    # Use ubbase64 to restore binary values.
+                    arg_clause += f"unbase64('{param_value}')"
+                elif is_time_type(param_info.type_name.value):
+                    date_str = (
+                        param_value if isinstance(param_value, str) else param_value.isoformat()
+                    )
+                    arg_clause += f"'{date_str}'"
+                elif param_info.type_name == ColumnTypeName.INTERVAL:
+                    interval_str = (
+                        convert_timedelta_to_interval_str(param_value)
+                        if not isinstance(param_value, str)
+                        else param_value
+                    )
+                    arg_clause += interval_str
+                else:
+                    if param_info.type_name == ColumnTypeName.DECIMAL and isinstance(
+                        param_value, Decimal
+                    ):
+                        _logger.warning(
+                            f"Param {param_info.name} has decimal value {param_value}, it is converted to float "
+                            "for execution, please note that this conversion may lose precision."
+                        )
+                        param_value = float(param_value)
+                    arg_clause += str(param_value)
+                args.append(arg_clause)
+        sql_query += ",".join(args)
+    sql_query += ")"
+    return sql_query
