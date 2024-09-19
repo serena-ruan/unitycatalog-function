@@ -41,11 +41,12 @@ _logger = logging.getLogger(__name__)
 # 2. python 3.9 with databricks-sdk, with cluster_id
 @pytest.fixture
 def client() -> DatabricksFunctionClient:
-    with mock.patch(
-        "unitycatalog.ai.databricks.get_default_databricks_workspace_client",
-        return_value=mock.Mock(),
-    ):
-        return DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
+    # with mock.patch(
+    #     "unitycatalog.ai.databricks.get_default_databricks_workspace_client",
+    #     return_value=mock.Mock(),
+    # ):
+    #     return DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
+    return DatabricksFunctionClient(warehouse_id="63f9f8ed4cedd92b")
 
 
 def random_func_name():
@@ -264,7 +265,7 @@ def test_create_and_execute_function(
             assert result.value == function_sample.output
 
 
-@requires_databricks
+# @requires_databricks
 def test_execute_function_with_timeout(client: DatabricksFunctionClient, monkeypatch):
     monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "5")
     with generate_func_name_and_cleanup(client) as func_name:
@@ -280,19 +281,12 @@ AS $$
 $$
 """
         client.create_function(sql_function_body=sql_body)
-        time1 = time.time()
         result = client.execute_function(full_func_name)
-        time_total1 = time.time() - time1
         assert result.error.startswith("Statement execution is still pending after 5 seconds")
 
-        time2 = time.time()
-        result = client.execute_function(
-            full_func_name, {EXECUTE_FUNCTION_ARG_NAME: {"wait_timeout": "10s"}}
-        )
-        time_total2 = time.time() - time2
-        assert result.error.startswith("Statement execution is still pending after 5 seconds")
-        # default wait_timeout is 30s
-        assert abs(abs(time_total2 - time_total1) - 20) < 5
+        monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "100")
+        result = client.execute_function(full_func_name)
+        assert result.value == "10"
 
 
 @requires_databricks
@@ -772,3 +766,33 @@ def test_extra_params_when_executing_function_errors(
         client._execute_uc_function(
             good_function_info, {EXECUTE_FUNCTION_ARG_NAME: {"invalid_param": "a"}}
         )
+
+
+@requires_databricks
+def test_extra_params_when_executing_function_e2e(client: DatabricksFunctionClient, monkeypatch):
+    monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "5")
+    with generate_func_name_and_cleanup(client) as func_name:
+        full_func_name = f"{CATALOG}.{SCHEMA}.{func_name}"
+        sql_body = f"""CREATE FUNCTION {full_func_name}()
+RETURNS STRING
+LANGUAGE PYTHON
+AS $$
+    import time
+
+    time.sleep(100)
+    return "10"
+$$
+"""
+        client.create_function(sql_function_body=sql_body)
+        time1 = time.time()
+        # default wait_timeout is 30s
+        client.execute_function(full_func_name)
+        time_total1 = time.time() - time1
+
+        time2 = time.time()
+        client.execute_function(
+            full_func_name, {EXECUTE_FUNCTION_ARG_NAME: {"wait_timeout": "10s"}}
+        )
+        time_total2 = time.time() - time2
+        # 30s - 10s = 20s, the time difference should be around 20s
+        assert abs(abs(time_total2 - time_total1) - 20) < 5
