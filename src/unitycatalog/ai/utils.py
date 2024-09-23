@@ -2,12 +2,19 @@ import datetime
 import base64
 import decimal
 import json
+import logging
+import os
 from dataclasses import dataclass
 from hashlib import md5
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Type, Union
 
 # TODO: validate this against pydantic v1 and v2
 from pydantic import Field, create_model, BaseModel
+
+from unitycatalog.ai.client import BaseFunctionClient, get_uc_function_client
+
+
+_logger = logging.getLogger(__name__)
 
 SQL_TYPE_TO_PYTHON_TYPE_MAPPING = {
     # numpy array is not accepted, it's not json serializable
@@ -49,19 +56,154 @@ UC_TYPE_JSON_MAPPING = {
     "INTERVAL DAY TO SECOND": (datetime.timedelta, str),
 }
 
+UC_LIST_FUNCTIONS_MAX_RESULTS = "100"
+
+
+def get_tool_name(func_name: str) -> str:
+    """
+    Get a tool name from the given function name, truncating if necessary.
+
+    If the function name exceeds 64 characters, it truncates the name to the last
+    64 characters and logs a warning.
+
+    Args:
+        func_name (str): The original function name.
+
+    Returns:
+        str: The tool name, truncated to 64 characters if necessary.
+
+    """
+    if len(func_name) > 64:
+        tool_name = func_name[-64:]
+        _logger.warning(
+            f"Function name {func_name} is too long, truncating to 64 characters {tool_name}."
+        )
+        return tool_name
+    return func_name
+
+
+def validate_or_set_default_client(client: Optional[BaseFunctionClient] = None):
+    """
+    Validate or set the default client.
+
+    If a client is provided, it returns the client. If not, it attempts to retrieve
+    the default client using `get_uc_function_client()`. Raises a `ValueError` if no
+    client is available.
+
+    Args:
+        client (Optional[BaseFunctionClient], optional): The client to validate or set.
+            Defaults to None.
+
+    Returns:
+        BaseFunctionClient: The validated client.
+
+    Raises:
+        ValueError: If no client is provided and no default client is available.
+
+    """
+    client = client or get_uc_function_client()
+    if client is None:
+        raise ValueError(
+            "No client provided, either set the client when creating a "
+            "toolkit or set the default client using "
+            "unitycatalog.ai.client.set_uc_function_client(client)."
+        )
+    return client
+
+
+def process_function_names(
+    function_names: List[str],
+    tools_dict: Dict[str, Any],
+    client,
+    uc_function_to_tool_func: Callable,
+) -> Dict[str, Any]:
+    """
+    Process function names and update the tools dictionary.
+
+    Iterates over the provided function names, converts them into tool instances
+    using the provided conversion function, and updates the `tools_dict`.
+    Handles wildcard function names (e.g., function name ending with '*') by
+    listing all functions in the specified catalog and schema.
+
+    Args:
+        function_names (List[str]): A list of function names to process.
+        tools_dict (Dict[str, Any]): A dictionary to store the tool instances.
+        client: The client used to list functions.
+        uc_function_to_tool_func (Callable): A function that converts a UC function
+            into a tool instance.
+
+    Returns:
+        Dict[str, Any]: The updated tools dictionary.
+
+    """
+    max_results = int(
+        os.environ.get("UC_LIST_FUNCTIONS_MAX_RESULTS", UC_LIST_FUNCTIONS_MAX_RESULTS)
+    )
+    for name in function_names:
+        if name not in tools_dict:
+            full_func_name = validate_full_function_name(name)
+            if full_func_name.function_name == "*":
+                token = None
+                while True:
+                    functions = client.list_functions(
+                        catalog=full_func_name.catalog_name,
+                        schema=full_func_name.schema_name,
+                        max_results=max_results,
+                        page_token=token,
+                    )
+                    for f in functions:
+                        if f.full_name not in tools_dict:
+                            tools_dict[f.full_name] = uc_function_to_tool_func(function_info=f)
+                    token = functions.token
+                    if token is None:
+                        break
+            else:
+                tools_dict[name] = uc_function_to_tool_func(function_name=name)
+    return tools_dict
+
 
 def column_type_to_python_type(column_type: str) -> Any:
+    """
+    Convert a SQL column type to the corresponding Python type.
+
+    Looks up the provided SQL column type in a mapping dictionary and returns
+    the corresponding Python type. Raises a `ValueError` if the column type
+    is unsupported.
+
+    Args:
+        column_type (str): The SQL column type to convert.
+
+    Returns:
+        Any: The corresponding Python type.
+
+    Raises:
+        ValueError: If the column type is unsupported.
+
+    """
     if t := SQL_TYPE_TO_PYTHON_TYPE_MAPPING.get(column_type):
         return t
     raise ValueError(f"Unsupported column type: {column_type}")
 
 
 def is_time_type(column_type: str) -> bool:
+    """
+    Check if the column type is a time-related type.
+
+    Determines if the given SQL column type represents a date or timestamp type.
+
+    Args:
+        column_type (str): The SQL column type to check.
+
+    Returns:
+        bool: True if the column type is time-related, False otherwise.
+
+    """
     return column_type in (
         "DATE",
         "TIMESTAMP",
         "TIMESTAMP_NTZ",
     )
+
 
 
 def validate_param(param: Any, column_type: str, param_type_text: str) -> None:

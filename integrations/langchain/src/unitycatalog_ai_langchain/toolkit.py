@@ -1,41 +1,15 @@
 import json
-import logging
-import os
 from typing import Any, Dict, List, Optional
 
 from langchain_core.pydantic_v1 import BaseModel, Field, root_validator
 from langchain_core.tools import StructuredTool
-from unitycatalog.ai.client import BaseFunctionClient, get_uc_function_client
+from unitycatalog.ai.client import BaseFunctionClient
 from unitycatalog.ai.utils import (
     generate_function_input_params_schema,
-    validate_full_function_name,
+    get_tool_name,
+    process_function_names,
+    validate_or_set_default_client,
 )
-
-_logger = logging.getLogger(__name__)
-
-UC_LIST_FUNCTIONS_MAX_RESULTS = "100"
-
-
-def get_tool_name(func_name: str) -> str:
-    if len(func_name) > 64:
-        tool_name = func_name[-64:]
-        _logger.warning(
-            f"Function name {func_name} is too long, truncating to 64 characters {tool_name}."
-        )
-        return tool_name
-    return func_name
-
-
-def validate_or_set_default_client(client: Optional[BaseFunctionClient] = None):
-    client = client or get_uc_function_client()
-    if client is None:
-        raise ValueError(
-            "No client provided, either set the client when creating the "
-            "LangchainToolkit, or set the default client using "
-            "unitycatalog.ai.client.set_uc_function_client(client)."
-        )
-    return client
-
 
 class UnityCatalogTool(StructuredTool):
     client_config: Dict[str, Any] = Field(
@@ -65,34 +39,15 @@ class LangchainToolkit(BaseModel):
         values["client"] = client
 
         function_names = values["function_names"]
-        tools_dict = values["tools_dict"]
-        for name in function_names:
-            if name not in tools_dict:
-                full_func_name = validate_full_function_name(name)
-                if full_func_name.function_name == "*":
-                    token = None
-                    while True:
-                        functions = client.list_functions(
-                            catalog=full_func_name.catalog_name,
-                            schema=full_func_name.schema_name,
-                            max_results=int(
-                                os.environ.get(
-                                    "UC_LIST_FUNCTIONS_MAX_RESULTS", UC_LIST_FUNCTIONS_MAX_RESULTS
-                                )
-                            ),
-                            page_token=token,
-                        )
-                        for f in functions:
-                            if f.full_name not in tools_dict:
-                                tools_dict[f.full_name] = cls.uc_function_to_langchain_tool(
-                                    function_info=f
-                                )
-                        token = functions.token
-                        if token is None:
-                            break
-                else:
-                    tools_dict[name] = cls.uc_function_to_langchain_tool(function_name=name)
-        values["tools_dict"] = tools_dict
+        tools_dict = values.get("tools_dict", {})
+
+        # Use the utility function
+        values["tools_dict"] = process_function_names(
+            function_names=function_names,
+            tools_dict=tools_dict,
+            client=client,
+            uc_function_to_tool_func=cls.uc_function_to_langchain_tool,
+        )
         return values
 
     @classmethod
