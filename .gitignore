@@ -13,3 +13,4 @@ __pycache__
 # packaging
 dist/
 *.egg-info/
+Pipfile
