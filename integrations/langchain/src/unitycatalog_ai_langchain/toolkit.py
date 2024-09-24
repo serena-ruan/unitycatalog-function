@@ -1,40 +1,17 @@
 import json
-import logging
 import os
 from typing import Any, Dict, List, Optional
 
 from langchain_core.pydantic_v1 import BaseModel, Field, root_validator
 from langchain_core.tools import StructuredTool
-from unitycatalog.ai.client import BaseFunctionClient, get_uc_function_client
+from unitycatalog.ai.client import BaseFunctionClient, validate_or_set_default_client
 from unitycatalog.ai.utils import (
     generate_function_input_params_schema,
+    get_tool_name,
     validate_full_function_name,
 )
 
-_logger = logging.getLogger(__name__)
-
 UC_LIST_FUNCTIONS_MAX_RESULTS = "100"
-
-
-def get_tool_name(func_name: str) -> str:
-    if len(func_name) > 64:
-        tool_name = func_name[-64:]
-        _logger.warning(
-            f"Function name {func_name} is too long, truncating to 64 characters {tool_name}."
-        )
-        return tool_name
-    return func_name
-
-
-def validate_or_set_default_client(client: Optional[BaseFunctionClient] = None):
-    client = client or get_uc_function_client()
-    if client is None:
-        raise ValueError(
-            "No client provided, either set the client when creating the "
-            "LangchainToolkit, or set the default client using "
-            "unitycatalog.ai.client.set_uc_function_client(client)."
-        )
-    return client
 
 
 class UnityCatalogTool(StructuredTool):
@@ -49,7 +26,10 @@ class LangchainToolkit(BaseModel):
         description="The list of function names in the form of 'catalog.schema.function'",
     )
 
-    tools_dict: Dict[str, UnityCatalogTool] = Field(default_factory=dict)
+    tools_dict: Dict[str, UnityCatalogTool] = Field(
+        default_factory=dict,
+        description="The tools dictionary storing the function name and langchain tool mapping, no need to provide this field",
+    )
 
     client: Optional[BaseFunctionClient] = Field(
         default=None,
@@ -85,13 +65,15 @@ class LangchainToolkit(BaseModel):
                         for f in functions:
                             if f.full_name not in tools_dict:
                                 tools_dict[f.full_name] = cls.uc_function_to_langchain_tool(
-                                    function_info=f
+                                    client=client, function_info=f
                                 )
                         token = functions.token
                         if token is None:
                             break
                 else:
-                    tools_dict[name] = cls.uc_function_to_langchain_tool(function_name=name)
+                    tools_dict[name] = cls.uc_function_to_langchain_tool(
+                        client=client, function_name=name
+                    )
         values["tools_dict"] = tools_dict
         return values
 
@@ -137,7 +119,7 @@ class LangchainToolkit(BaseModel):
             name=get_tool_name(function_name),
             description=function_info.comment or "",
             func=func,
-            args_schema=generate_function_input_params_schema(function_info),
+            args_schema=generate_function_input_params_schema(function_info).pydantic_model,
             client_config=client.to_dict(),
         )
 
