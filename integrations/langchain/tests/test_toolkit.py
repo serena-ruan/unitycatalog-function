@@ -1,23 +1,26 @@
-import pytest
-from unitycatalog.ai.client import (
-    set_uc_function_client,
-    get_uc_function_client,
-    FunctionExecutionResult,
-)
-from unitycatalog.ai.databricks import DatabricksFunctionClient
-from unitycatalog_ai_langchain.toolkit import LangchainToolkit
 import json
-from contextlib import contextmanager
-from typing import NamedTuple
 import logging
 import uuid
+from contextlib import contextmanager
+from typing import NamedTuple
 from unittest import mock
+
+import pytest
 from databricks.sdk.service.catalog import (
     FunctionInfo,
     FunctionParameterInfo,
     FunctionParameterInfos,
 )
+from unitycatalog.ai.client import (
+    FunctionExecutionResult,
+    get_uc_function_client,
+    set_uc_function_client,
+)
+from unitycatalog.ai.databricks import DatabricksFunctionClient
+from unitycatalog.ai.utils import get_tool_name
+
 from tests.helper_functions import requires_databricks
+from unitycatalog_ai_langchain.toolkit import LangchainToolkit
 
 
 @pytest.fixture
@@ -81,7 +84,7 @@ def test_toolkit_e2e(set_default_client):
         tools = toolkit.tools
         assert len(tools) == 1
         tool = tools[0]
-        assert tool.name == func_obj.full_function_name
+        assert tool.name == func_obj.full_function_name.replace(".", "__")
         assert tool.description == func_obj.comment
         assert tool.client_config == client.to_dict()
         tool.args_schema(**{"code": "print(1)"})
@@ -90,7 +93,26 @@ def test_toolkit_e2e(set_default_client):
 
         toolkit = LangchainToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
         assert len(toolkit.tools) >= 1
-        assert func_obj.full_function_name in [t.name for t in toolkit.tools]
+        assert get_tool_name(func_obj.full_function_name) in [t.name for t in toolkit.tools]
+
+
+@requires_databricks
+def test_toolkit_e2e_manually_passing_client(client):
+    with create_function_and_cleanup(client) as func_obj:
+        toolkit = LangchainToolkit(function_names=[func_obj.full_function_name], client=client)
+        tools = toolkit.tools
+        assert len(tools) == 1
+        tool = tools[0]
+        assert tool.name == func_obj.full_function_name.replace(".", "__")
+        assert tool.description == func_obj.comment
+        assert tool.client_config == client.to_dict()
+        tool.args_schema(**{"code": "print(1)"})
+        result = json.loads(tool.func(code="print(1)"))["value"]
+        assert result == "1\n"
+
+        toolkit = LangchainToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"], client=client)
+        assert len(toolkit.tools) >= 1
+        assert get_tool_name(func_obj.full_function_name) in [t.name for t in toolkit.tools]
 
 
 @requires_databricks
@@ -100,7 +122,9 @@ def test_multiple_toolkits(set_default_client):
         toolkit1 = LangchainToolkit(function_names=[func_obj.full_function_name])
         toolkit2 = LangchainToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
         tool1 = toolkit1.tools[0]
-        tool2 = [t for t in toolkit2.tools if t.name == func_obj.full_function_name][0]
+        tool2 = [t for t in toolkit2.tools if t.name == get_tool_name(func_obj.full_function_name)][
+            0
+        ]
         input_args = {"code": "print(1)"}
         assert tool1.func(**input_args) == tool2.func(**input_args)
 
@@ -152,4 +176,5 @@ def test_uc_function_to_langchain_tool(client: DatabricksFunctionClient):
         tool = LangchainToolkit.uc_function_to_langchain_tool(
             client=client, function_name=f"{CATALOG}.{SCHEMA}.test"
         )
+        assert tool.name == get_tool_name(f"{CATALOG}.{SCHEMA}.test")
         assert json.loads(tool.func(x="some_string"))["value"] == "some_string"

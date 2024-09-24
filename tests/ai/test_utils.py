@@ -122,7 +122,7 @@ def test_convert_timedelta_to_interval_str(time_val, expected):
     ],
 )
 def test_uc_type_json_to_pydantic_type(uc_type_json, expected_type_or_input):
-    param_type = uc_type_json_to_pydantic_type(uc_type_json)
+    param_type = uc_type_json_to_pydantic_type(uc_type_json).pydantic_type
     if isinstance(param_type, type(BaseModel)):
         param_type(**expected_type_or_input)
     else:
@@ -403,7 +403,7 @@ def generate_function_info(parameters: List[Dict], catalog="catalog", schema="sc
     ],
 )
 def test_generate_function_input_params_schema(function_info, valid_inputs):
-    pydantic_model = generate_function_input_params_schema(function_info)
+    pydantic_model = generate_function_input_params_schema(function_info).pydantic_model
     for data in valid_inputs:
         pydantic_model(**data)
 
@@ -425,5 +425,5 @@ def test_generate_function_input_params_schema_with_non_ascii_chars():
         catalog="カタログ",
         schema="スキーマ",
     )
-    pydantic_model = generate_function_input_params_schema(function_info)
+    pydantic_model = generate_function_input_params_schema(function_info).pydantic_model
     pydantic_model(**{"x": 123})

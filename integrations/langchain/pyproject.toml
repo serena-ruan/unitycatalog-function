@@ -6,7 +6,7 @@ authors = [
     { name="Serena Ruan", email="serena.ruan@databricks.com" }
 ]
 readme = "README.md"
-license = { text="MIT" }
+license = { text="Apache-2.0" }
 requires-python = ">=3.9"
 dependencies = [
     "langchain>=0.2.0",
@@ -20,7 +20,8 @@ dev = [
   "typing_extensions",
   # temp needed before unitycatalog-ai[databricks] is released
   "databricks-sdk>=0.32.0",
-  "databricks-connect"
+  "databricks-connect",
+  "ruff==0.6.4"
 ]
 
 [build-system]

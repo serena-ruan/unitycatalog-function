@@ -171,3 +171,14 @@ def set_uc_function_client(client: BaseFunctionClient) -> None:
 
     with _client_lock:
         _uc_function_client = client
+
+
+def validate_or_set_default_client(client: Optional[BaseFunctionClient] = None):
+    client = client or get_uc_function_client()
+    if client is None:
+        raise ValueError(
+            "No client provided, either set the client when creating the "
+            "tool, or set the default client using "
+            "unitycatalog.ai.client.set_uc_function_client(client)."
+        )
+    return client
