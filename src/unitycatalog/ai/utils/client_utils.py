@@ -10,7 +10,11 @@ def validate_or_set_default_client(client: Optional[BaseFunctionClient] = None):
     the default client using `get_uc_function_client()`. Raises a `ValueError` if no
     client is available.
     Args:
+<<<<<<< HEAD
         client (Optional[BaseFunctionClient]): The client to validate or set.
+=======
+        client (Optional[BaseFunctionClient], optional): The client to validate or set.
+>>>>>>> 6209214 (modularize utils)
             Defaults to None.
     Returns:
         BaseFunctionClient: The validated client.
