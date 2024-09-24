@@ -15,8 +15,8 @@ from typing_extensions import override
 from unitycatalog.ai.client import BaseFunctionClient, FunctionExecutionResult
 from unitycatalog.ai.paged_list import PagedList
 from unitycatalog.ai.utils.type_utils import (
-    column_type_to_python_type,
     convert_timedelta_to_interval_str,
+    column_type_to_python_type,
     is_time_type,
 )
 from unitycatalog.ai.utils.validation_utils import validate_full_function_name, validate_param

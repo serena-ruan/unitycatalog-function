@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from typing import Any, Optional, Type
-
 from pydantic import BaseModel
+from typing import Optional, Type, Any
 
 
 @dataclass
