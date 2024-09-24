@@ -283,7 +283,7 @@ class PydanticField:
     strict: bool = False
 
 
-def param_info_to_pydantic_type(param_info: Any, strict=False) -> PydanticField:
+def param_info_to_pydantic_type(param_info: Any, strict: bool = False) -> PydanticField:
     """
     Convert Unity Catalog function parameter information to Pydantic type.
 
