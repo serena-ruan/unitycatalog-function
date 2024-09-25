@@ -17,7 +17,7 @@ from unitycatalog.ai.client import (
     set_uc_function_client,
 )
 from unitycatalog.ai.databricks import DatabricksFunctionClient
-from unitycatalog.ai.utils import get_tool_name
+from unitycatalog.ai.utils.function_processing_utils import get_tool_name
 
 from tests.helper_functions import requires_databricks
 from unitycatalog_ai_langchain.toolkit import LangchainToolkit

@@ -1,174 +1,22 @@
-import base64
-import datetime
 import decimal
 import json
 import logging
-from dataclasses import dataclass
+import os
 from hashlib import md5
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type, Union
+from pydantic import Field, create_model, BaseModel
+from typing import List, Dict, Any, Callable, Optional, Union, Tuple
 
-# TODO: validate this against pydantic v1 and v2
-from pydantic import BaseModel, Field, create_model
+from unitycatalog.ai.utils.config import UC_LIST_FUNCTIONS_MAX_RESULTS, JSON_SCHEMA_TYPE
+from unitycatalog.ai.utils.pydantic_utils import (
+    PydanticType,
+    PydanticField,
+    PydanticFunctionInputParams,
+)
+from unitycatalog.ai.utils.type_utils import UC_TYPE_JSON_MAPPING
+from unitycatalog.ai.utils.validation_utils import validate_full_function_name
+
 
 _logger = logging.getLogger(__name__)
-
-
-# JSON schema definition: https://json-schema.org/understanding-json-schema/reference/type
-JSON_SCHEMA_TYPE = {
-    "ARRAY",
-    "BOOLEAN",
-    "BYTE",
-    "CHAR",
-    "DOUBLE",
-    "FLOAT",
-    "INT",
-    "LONG",
-    "MAP",
-    "NULL",
-    "SHORT",
-    "STRING",
-    "STRUCT",
-    "TABLE_TYPE",
-}
-
-SQL_TYPE_TO_PYTHON_TYPE_MAPPING = {
-    # numpy array is not accepted, it's not json serializable
-    "ARRAY": (list, tuple),
-    "BINARY": (bytes, str),
-    "BOOLEAN": bool,
-    # tinyint type
-    "BYTE": int,
-    "CHAR": str,
-    "DATE": (datetime.date, str),
-    # no precision and scale check, rely on SQL function to validate
-    "DECIMAL": (decimal.Decimal, float),
-    "DOUBLE": float,
-    "FLOAT": float,
-    "INT": int,
-    "INTERVAL": (datetime.timedelta, str),
-    "LONG": int,
-    "MAP": dict,
-    # ref: https://docs.databricks.com/en/error-messages/datatype-mismatch-error-class.html#null_type
-    # it's not supported in return data type as well `[UNSUPPORTED_DATATYPE] Unsupported data type "NULL". SQLSTATE: 0A000`
-    "NULL": type(None),
-    "SHORT": int,
-    "STRING": str,
-    "STRUCT": dict,
-    # not allowed for python udf, users should only pass string
-    "TABLE_TYPE": str,
-    "TIMESTAMP": (datetime.datetime, str),
-    "TIMESTAMP_NTZ": (datetime.datetime, str),
-    # it's a type that can be defined in scala, python shouldn't force check the type here
-    # ref: https://www.waitingforcode.com/apache-spark-sql/used-defined-type/read
-    "USER_DEFINED_TYPE": object,
-}
-
-UC_TYPE_JSON_MAPPING = {
-    **SQL_TYPE_TO_PYTHON_TYPE_MAPPING,
-    "INTEGER": int,
-    # The binary field should be a string expression in base64 format
-    "BINARY": bytes,
-    "INTERVAL DAY TO SECOND": (datetime.timedelta, str),
-}
-
-
-def column_type_to_python_type(column_type: str) -> Any:
-    if t := SQL_TYPE_TO_PYTHON_TYPE_MAPPING.get(column_type):
-        return t
-    raise ValueError(f"Unsupported column type: {column_type}")
-
-
-def is_time_type(column_type: str) -> bool:
-    return column_type in (
-        "DATE",
-        "TIMESTAMP",
-        "TIMESTAMP_NTZ",
-    )
-
-
-def validate_param(param: Any, column_type: str, param_type_text: str) -> None:
-    """
-    Validate the parameter against the parameter info.
-
-    Args:
-        param (Any): The parameter to validate.
-        column_type (str): The column type name.
-        param_type_text (str): The parameter type text.
-    """
-    if is_time_type(column_type) and isinstance(param, str):
-        try:
-            datetime.datetime.fromisoformat(param)
-        except ValueError as e:
-            raise ValueError(f"Invalid datetime string: {param}, expecting ISO format.") from e
-    elif column_type == "INTERVAL":
-        # only day-time interval is supported, no year-month interval
-        if isinstance(param, datetime.timedelta) and param_type_text != "interval day to second":
-            raise ValueError(
-                f"Invalid interval type text: {param_type_text}, expecting 'interval day to second', "
-                "python timedelta can only be used for day-time interval."
-            )
-        # Only DAY TO SECOND is supported in python udf
-        # rely on the SQL function for checking the interval format
-        elif isinstance(param, str) and not (
-            param.startswith("INTERVAL") and param.endswith("DAY TO SECOND")
-        ):
-            raise ValueError(
-                f"Invalid interval string: {param}, expecting format `INTERVAL '[+|-] d[...] [h]h:[m]m:[s]s.ms[ms][ms][us][us][us]' DAY TO SECOND`."
-            )
-    elif column_type == "BINARY" and isinstance(param, str) and not is_base64_encoded(param):
-        # the string value for BINARY column must be base64 encoded
-        raise ValueError(
-            f"The string input for column type BINARY must be base64 encoded, invalid input: {param}."
-        )
-
-
-def is_base64_encoded(s: str) -> bool:
-    try:
-        base64.b64decode(s, validate=True)
-        return True
-    except (base64.binascii.Error, ValueError):
-        return False
-
-
-def convert_timedelta_to_interval_str(time_val: datetime.timedelta) -> str:
-    """
-    Convert a timedelta object to a string representing an interval in the format of 'INTERVAL "d hh:mm:ss.ssssss"'.
-    """
-    days = time_val.days
-    hours, remainder = divmod(time_val.seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    microseconds = time_val.microseconds
-    return f"INTERVAL '{days} {hours}:{minutes}:{seconds}.{microseconds}' DAY TO SECOND"
-
-
-class FullFunctionName(NamedTuple):
-    catalog_name: str
-    schema_name: str
-    function_name: str
-
-
-def validate_full_function_name(function_name: str) -> FullFunctionName:
-    """
-    Validate the full function name follows the format <catalog_name>.<schema_name>.<function_name>.
-
-    Args:
-        function_name (str): The full function name.
-
-    Returns:
-        FullFunctionName: The parsed full function name.
-    """
-    splits = function_name.split(".")
-    if len(splits) != 3:
-        raise ValueError(
-            f"Invalid function name: {function_name}, expecting format <catalog_name>.<schema_name>.<function_name>."
-        )
-    return FullFunctionName(catalog_name=splits[0], schema_name=splits[1], function_name=splits[2])
-
-
-@dataclass
-class PydanticType:
-    pydantic_type: Type
-    strict: bool = False
 
 
 def uc_type_json_to_pydantic_type(
@@ -249,38 +97,67 @@ def uc_type_json_to_pydantic_type(
     return PydanticType(pydantic_type=pydantic_type, strict=strict)
 
 
-# TODO: add UC OSS support
-def supported_param_info_types():
-    types = ()
-    try:
-        from databricks.sdk.service.catalog import FunctionParameterInfo
-
-        types += (FunctionParameterInfo,)
-    except ImportError:
-        pass
-
-    return types
-
-
-# TODO: add UC OSS support
-def supported_function_info_types():
-    types = ()
-    try:
-        from databricks.sdk.service.catalog import FunctionInfo
-
-        types += (FunctionInfo,)
-    except ImportError:
-        pass
-
-    return types
+def get_tool_name(func_name: str) -> str:
+    # OpenAI has constriant on the function name:
+    # Must be a-z, A-Z, 0-9, or contain underscores and dashes, with a maximum length of 64.
+    full_func_name = validate_full_function_name(func_name)
+    tool_name = f"{full_func_name.catalog_name}__{full_func_name.schema_name}__{full_func_name.function_name}"
+    if len(tool_name) > 64:
+        _logger.warning(
+            f"Function name {tool_name} is too long, truncating to 64 characters {tool_name[-64:]}."
+        )
+        return tool_name[-64:]
+    return tool_name
 
 
-@dataclass
-class PydanticField:
-    pydantic_type: Type
-    description: Optional[str] = None
-    default: Optional[Any] = None
-    strict: bool = False
+def process_function_names(
+    function_names: List[str],
+    tools_dict: Dict[str, Any],
+    client,
+    uc_function_to_tool_func: Callable,
+) -> Dict[str, Any]:
+    """
+    Process function names and update the tools dictionary.
+    Iterates over the provided function names, converts them into tool instances
+    using the provided conversion function, and updates the `tools_dict`.
+    Handles wildcard function names (e.g., function name ending with '*') by
+    listing all functions in the specified catalog and schema.
+    Args:
+        function_names (List[str]): A list of function names to process.
+        tools_dict (Dict[str, Any]): A dictionary to store the tool instances.
+        client: The client used to list functions.
+        uc_function_to_tool_func (Callable): A function that converts a UC function
+            into a tool instance. This function should accept kwargs only to make
+            sure the parameters are passed correctly.
+    Returns:
+        Dict[str, Any]: The updated tools dictionary.
+    """
+    max_results = int(
+        os.environ.get("UC_LIST_FUNCTIONS_MAX_RESULTS", UC_LIST_FUNCTIONS_MAX_RESULTS)
+    )
+    for name in function_names:
+        if name not in tools_dict:
+            full_func_name = validate_full_function_name(name)
+            if full_func_name.function_name == "*":
+                token = None
+                while True:
+                    functions = client.list_functions(
+                        catalog=full_func_name.catalog_name,
+                        schema=full_func_name.schema_name,
+                        max_results=max_results,
+                        page_token=token,
+                    )
+                    for f in functions:
+                        if f.full_name not in tools_dict:
+                            tools_dict[f.full_name] = uc_function_to_tool_func(
+                                function_info=f, client=client
+                            )
+                    token = functions.token
+                    if token is None:
+                        break
+            else:
+                tools_dict[name] = uc_function_to_tool_func(function_name=name, client=client)
+    return tools_dict
 
 
 def param_info_to_pydantic_type(param_info: Any, strict: bool = False) -> PydanticField:
@@ -316,12 +193,6 @@ def param_info_to_pydantic_type(param_info: Any, strict: bool = False) -> Pydant
         default=default,
         strict=pydantic_type.strict,
     )
-
-
-@dataclass
-class PydanticFunctionInputParams:
-    pydantic_model: Type[BaseModel]
-    strict: bool = False
 
 
 def generate_function_input_params_schema(
@@ -362,14 +233,27 @@ def generate_function_input_params_schema(
     return PydanticFunctionInputParams(pydantic_model=model, strict=pydantic_field.strict)
 
 
-def get_tool_name(func_name: str) -> str:
-    # OpenAI has constriant on the function name:
-    # Must be a-z, A-Z, 0-9, or contain underscores and dashes, with a maximum length of 64.
-    full_func_name = validate_full_function_name(func_name)
-    tool_name = f"{full_func_name.catalog_name}__{full_func_name.schema_name}__{full_func_name.function_name}"
-    if len(tool_name) > 64:
-        _logger.warning(
-            f"Function name {tool_name} is too long, truncating to 64 characters {tool_name[-64:]}."
-        )
-        return tool_name[-64:]
-    return tool_name
+# TODO: add UC OSS support
+def supported_param_info_types():
+    types = ()
+    try:
+        from databricks.sdk.service.catalog import FunctionParameterInfo
+
+        types += (FunctionParameterInfo,)
+    except ImportError:
+        pass
+
+    return types
+
+
+# TODO: add UC OSS support
+def supported_function_info_types():
+    types = ()
+    try:
+        from databricks.sdk.service.catalog import FunctionInfo
+
+        types += (FunctionInfo,)
+    except ImportError:
+        pass
+
+    return types
