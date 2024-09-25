@@ -24,6 +24,8 @@ from ucai_langchain.toolkit import UCFunctionToolkit
 
 USE_SERVERLESS = "USE_SERVERLESS"
 
+USE_SERVERLESS = "USE_SERVERLESS"
+
 
 def get_client() -> DatabricksFunctionClient:
     with mock.patch(
@@ -123,6 +125,28 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
         assert result == "1\n"
 
         toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"], client=client)
+        assert len(toolkit.tools) >= 1
+        assert get_tool_name(func_obj.full_function_name) in [t.name for t in toolkit.tools]
+
+
+@requires_databricks
+@pytest.mark.parametrize("use_serverless", [True, False])
+def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
+    client = get_client()
+    with set_default_client(client), create_function_and_cleanup(client) as func_obj:
+        toolkit = LangchainToolkit(function_names=[func_obj.full_function_name], client=client)
+        tools = toolkit.tools
+        assert len(tools) == 1
+        tool = tools[0]
+        assert tool.name == func_obj.full_function_name.replace(".", "__")
+        assert tool.description == func_obj.comment
+        assert tool.client_config == client.to_dict()
+        tool.args_schema(**{"code": "print(1)"})
+        result = json.loads(tool.func(code="print(1)"))["value"]
+        assert result == "1\n"
+
+        toolkit = LangchainToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"], client=client)
         assert len(toolkit.tools) >= 1
         assert get_tool_name(func_obj.full_function_name) in [t.name for t in toolkit.tools]
 
