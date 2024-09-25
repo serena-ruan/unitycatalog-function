@@ -15,12 +15,11 @@ from typing_extensions import override
 from unitycatalog.ai.client import BaseFunctionClient, FunctionExecutionResult
 from unitycatalog.ai.paged_list import PagedList
 from unitycatalog.ai.utils.type_utils import (
-    convert_timedelta_to_interval_str,
     column_type_to_python_type,
+    convert_timedelta_to_interval_str,
     is_time_type,
 )
 from unitycatalog.ai.utils.validation_utils import validate_full_function_name, validate_param
-
 
 if TYPE_CHECKING:
     from databricks.sdk import WorkspaceClient
@@ -636,10 +635,6 @@ def get_execute_function_sql_stmt(
                     if param_info.type_name == ColumnTypeName.DECIMAL and isinstance(
                         param_value, Decimal
                     ):
-                        _logger.warning(
-                            f"Param {param_info.name} has decimal value {param_value}, it is converted to float "
-                            "for execution, please note that this conversion may lose precision."
-                        )
                         param_value = float(param_value)
                     arg_clause += f":{param_info.name}"
                     output_params.append(
@@ -704,12 +699,8 @@ def get_execute_function_sql_command(function: "FunctionInfo", parameters: Dict[
                     if param_info.type_name == ColumnTypeName.DECIMAL and isinstance(
                         param_value, Decimal
                     ):
-                        _logger.warning(
-                            f"Param {param_info.name} has decimal value {param_value}, it is converted to float "
-                            "for execution, please note that this conversion may lose precision."
-                        )
                         param_value = float(param_value)
-                    arg_clause += str(param_value)
+                    arg_clause += f"'{str(param_value)}'"
                 args.append(arg_clause)
         sql_query += ",".join(args)
     sql_query += ")"
