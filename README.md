@@ -79,4 +79,4 @@ assert result.value == "some_string"
 ```
 
 #### Reminders
-- If the function contains `DECIMAL` type parameter, it is converted to python `float` for execution, and this conversion mayb lose precision.
+- If the function contains `DECIMAL` type parameter, it is converted to python `float` for execution, and this conversion may lose precision.
