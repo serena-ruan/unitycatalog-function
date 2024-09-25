@@ -43,7 +43,7 @@ class UnityCatalogTool(FunctionTool):
         self.client_config = client_config
 
 
-class LlamaIndexToolkit(BaseModel):
+class UCFunctionToolkit(BaseModel):
     """
     A toolkit for managing Unity Catalog functions and converting them into tools.
 
@@ -71,24 +71,25 @@ class LlamaIndexToolkit(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode="after")
-    def validate_toolkit(self) -> "LlamaIndexToolkit":
+    def validate_toolkit(self) -> "UCFunctionToolkit":
         """
         Validates the toolkit configuration and processes function names.
 
         Returns:
-            LlamaIndexToolkit: The validated and updated toolkit instance.
+            UCFunctionToolkit: The validated and updated toolkit instance for LlamaIndex integration.
         """
         client = validate_or_set_default_client(self.client)
         self.client = client
 
-        function_names = self.function_names
-        tools_dict = self.tools_dict
+        if not self.function_names:
+            raise ValueError("Cannot create tool instances without function_names being provided.")
 
         self.tools_dict = process_function_names(
-            function_names=function_names,
-            tools_dict=tools_dict,
+            function_names=self.function_names,
+            tools_dict=self.tools_dict,
             client=client,
             uc_function_to_tool_func=self.uc_function_to_llama_tool,
+            return_direct=self.return_direct,
         )
         return self
 

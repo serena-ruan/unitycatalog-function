@@ -1,7 +1,7 @@
 [project]
-name = "unitycatalog-ai-llamaindex"
+name = "ucai-llamaindex"
 version = "0.0.1"
-description = "Support for Unity Catalog functions as llama index tools"
+description = "Support for Unity Catalog functions as LlamaIndex tools"
 authors = [
     { name="Ben Wilson", email="benjamin.wilson@databricks.com" }
 ]
@@ -28,11 +28,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build]
 include = [
-  "src/unitycatalog_ai_llamaindex/*"
+  "src/ucai_llamaindex/*"
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/unitycatalog_ai_llamaindex"]
+packages = ["src/ucai_llamaindex"]
 
 [tool.ruff]
 line-length = 100

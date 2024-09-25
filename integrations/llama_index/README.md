@@ -7,7 +7,7 @@ You can use functions defined within Unity Catalog (UC) directly as tools within
 ### From PyPI
 
 ```sh
-pip install unitycatalog-ai-llamaindex
+pip install ucai-llamaindex
 ```
 
 ### From source
@@ -16,7 +16,7 @@ To get started with the latest version, you can directly install this package fr
 
 <!-- TODO: update this to the actual path where the repo's main branch will live -->
 ```sh
-pip install git+https://github.com/BenWilson2/unitycatalog-ai.git@llama-index#subdirectory=integrations/llamaindex
+pip install git+https://github.com/BenWilson2/unitycatalog-ai.git@llama-tool#subdirectory=integrations/llama_index
 ```
 
 ## Getting started
@@ -73,16 +73,16 @@ client.create_function(sql_function_body=sql_body)
 
 Now that the function exists within the Catalog and Schema that we defined, we can interface with it from llamaindex using the unitycatalog_ai_llamaindex package.
 
-#### Create an instance of a LlamaIndex tool
+#### Create an instance of a LlamaIndex compatible tool
 
 [LlamaIndex Tools](https://docs.llamaindex.ai/en/stable/module_guides/deploying/agents/tools/) are callable external functions that GenAI applications (called by 
-an LLM), which are exposed with a UC interface through the use of the unitycatalog_ai_llamaindex package via the `LlamaIndexToolkit` API.
+an LLM), which are exposed with a UC interface through the use of the ucai_llamaindex package via the `UCFunctionToolkit` API.
 
 ```python
-from unitycatalog_ai_llamaindex.toolkit import LlamaIndexToolkit
+from ucai_llamaindex.toolkit import UCFunctionToolkit
 
 # Pass the UC function name that we created to the constructor
-toolkit = LlamaIndexToolkit(function_names=[func_name])
+toolkit = UCFunctionToolkit(function_names=[func_name])
 
 # Get the LlamaIndex-compatible tools definitions
 tools = toolkit.tools
