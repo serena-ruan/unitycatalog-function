@@ -66,8 +66,8 @@ class LangchainToolkit(BaseModel):
 
         Args:
             client: The client for managing functions, must be an instance of BaseFunctionClient
-            function_name (optional): The full name of the function in the form of 'catalog.schema.function'
-            function_info (optional): The function info object returned by the client.get_function() method
+            function_name: The full name of the function in the form of 'catalog.schema.function'
+            function_info: The function info object returned by the client.get_function() method
 
             .. note::
                 Only one of function_name or function_info should be provided.

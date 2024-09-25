@@ -121,12 +121,12 @@ class DatabricksFunctionClient(BaseFunctionClient):
         Args:
             client: The databricks workspace client. If it's None, a default databricks workspace client
                 is generated based on the configuration. Defaults to None.
-            warehouse_id (str, optional): The warehouse id to use for executing functions. This field is
+            warehouse_id: The warehouse id to use for executing functions. This field is
                 not needed if serverless is enabled in the databricks workspace. Defaults to None.
-            cluster_id (str, optional): The cluster id to use for creating functions. Make sure the cluster
+            cluster_id: The cluster id to use for creating functions. Make sure the cluster
                 is up and running before creating the function. This field is not needed if databricks-connect
                 is installed and serverless is enabled in databricks workspace. Defaults to None.
-            profile (str, optional): The configuration profile to use for databricks connect. Defaults to None.
+            profile: The configuration profile to use for databricks connect. Defaults to None.
         """
         self.client = client or get_default_databricks_workspace_client()
         self.warehouse_id = warehouse_id
@@ -185,14 +185,14 @@ class DatabricksFunctionClient(BaseFunctionClient):
         Create a UC function with the given sql body or function info.
 
         Args:
-            sql_function_body (str, optional): The sql body of the function. Defaults to None.
+            sql_function_body: The sql body of the function. Defaults to None.
                 It should follow the syntax of CREATE FUNCTION statement in Databricks.
                 Ref: https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-ddl-create-sql-function.html#syntax
 
                 .. Note:: This is supported using databricks connect; if databricks-connect version is 15.1.0 or above,
                     by default it uses serverless compute; otherwise please provide a cluster_id when constructing the client
                     and the client will use remote cluster to create the function.
-            function_info (CreateFunction, optional): The function info. Defaults to None.
+            function_info: The function info. Defaults to None.
 
         Returns:
             FunctionInfo: The created function info.
@@ -257,7 +257,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
         Get a function by its name.
 
         Args:
-            function_name (str): The name of the function to get.
+            function_name: The name of the function to get.
             kwargs: additional key-value pairs to include when getting the function.
 
             ..Note::
@@ -287,10 +287,10 @@ class DatabricksFunctionClient(BaseFunctionClient):
         List functions in a catalog and schema.
 
         Args:
-            catalog (str): The catalog name.
-            schema (str): The schema name.
-            max_results (int, optional): The maximum number of functions to return. Defaults to None.
-            page_token (str, optional): The token for the next page. Defaults to None.
+            catalog: The catalog name.
+            schema: The schema name.
+            max_results: The maximum number of functions to return. Defaults to None.
+            page_token: The token for the next page. Defaults to None.
 
         Returns:
             PageList[List[FunctionInfo]]: The paginated list of function infos.
@@ -339,8 +339,8 @@ class DatabricksFunctionClient(BaseFunctionClient):
         Execute a UC function by name with the given parameters.
 
         Args:
-            function_name (str): The name of the function to execute.
-            parameters (Dict[str, Any], optional): The parameters to pass to the function. Defaults to None.
+            function_name: The name of the function to execute.
+            parameters: The parameters to pass to the function. Defaults to None.
             kwargs: additional key-value pairs to include when executing the function.
                 Allowed keys for retreiiving functions are:
                 - include_browse: bool (default to False)
