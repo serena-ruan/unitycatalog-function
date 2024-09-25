@@ -177,6 +177,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
     @override
     def create_function(
         self,
+        *,
         sql_function_body: Optional[str] = None,
         function_info: Optional["CreateFunction"] = None,
     ) -> "FunctionInfo":
