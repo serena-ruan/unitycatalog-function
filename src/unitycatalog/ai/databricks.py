@@ -489,9 +489,9 @@ class DatabricksFunctionClient(BaseFunctionClient):
 
         else:
             _logger.info("Using databricks connect to execute functions with serverless compute.")
+            self.set_default_spark_session()
+            sql_command = get_execute_function_sql_command(function_info, parameters)
             try:
-                self.set_default_spark_session()
-                sql_command = get_execute_function_sql_command(function_info, parameters)
                 result = self.spark.sql(sqlQuery=sql_command)
                 if is_scalar(function_info):
                     return FunctionExecutionResult(
@@ -504,9 +504,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
                             DEFAULT_UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT,
                         )
                     )
-                    truncated = False
-                    if result.count() > row_limit:
-                        truncated = True
+                    truncated = result.count() > row_limit
                     pdf = result.limit(row_limit).toPandas()
                     csv_buffer = StringIO()
                     pdf.to_csv(csv_buffer, index=False)
