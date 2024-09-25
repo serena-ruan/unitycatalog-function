@@ -48,7 +48,7 @@ class BaseFunctionClient(ABC):
         Get a function by its name.
 
         Args:
-            function_name (str): The name of the function to get.
+            function_name: The name of the function to get.
             kwargs: additional key-value pairs to include when getting the function.
         """
 
@@ -64,13 +64,13 @@ class BaseFunctionClient(ABC):
         List functions in a catalog and schema.
 
         Args:
-            catalog (str): The catalog name.
-            schema (str): The schema name.
-            max_results (int, optional): The maximum number of functions to return. Defaults to None.
-            page_token (str, optional): The token for the next page. Defaults to None.
+            catalog: The catalog name.
+            schema: The schema name.
+            max_results: The maximum number of functions to return. Defaults to None.
+            page_token: The token for the next page. Defaults to None.
 
         Returns:
-            PageList[List[Any]]: The paginated list of function infos, the type of the function
+            PageList: The paginated list of function infos, the type of the function
                 info is determined by the client implementation.
         """
 
@@ -79,9 +79,9 @@ class BaseFunctionClient(ABC):
         Validate passed parameters against the function's input parameters definition.
 
         Args:
-            input_params (Any): The function's input parameters definition. It should be
+            input_params: The function's input parameters definition. It should be
                 of type InputParams in unitycatalog, or FunctionParameterInfos in databricks.
-            parameters (Dict[str, Any]): The parameters to validate.
+            parameters: The parameters to validate.
         """
         parameters = deepcopy(parameters)
         if input_params and input_params.parameters:
@@ -124,8 +124,8 @@ class BaseFunctionClient(ABC):
         Execute a UC function by name with the given parameters.
 
         Args:
-            function_name (str): The name of the function to execute.
-            parameters (Dict[str, Any], optional): The parameters to pass to the function. Defaults to None.
+            function_name: The name of the function to execute.
+            parameters: The parameters to pass to the function. Defaults to None.
             kwargs: additional key-value pairs to include when executing the function.
 
         Returns:
