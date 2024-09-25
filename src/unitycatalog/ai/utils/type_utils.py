@@ -2,7 +2,6 @@ import datetime
 import decimal
 from typing import Any
 
-
 SQL_TYPE_TO_PYTHON_TYPE_MAPPING = {
     # numpy array is not accepted, it's not json serializable
     "ARRAY": (list, tuple),

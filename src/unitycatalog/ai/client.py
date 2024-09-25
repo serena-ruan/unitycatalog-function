@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Dict, Literal, Optional
+
 from unitycatalog.ai.paged_list import PagedList
 
 _logger = logging.getLogger(__name__)

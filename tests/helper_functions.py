@@ -1,5 +1,6 @@
-import pytest
 import os
+
+import pytest
 
 
 def requires_databricks(test_func):
