@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import uuid
 from contextlib import contextmanager
 from typing import NamedTuple
@@ -13,7 +14,6 @@ from databricks.sdk.service.catalog import (
 )
 from unitycatalog.ai.client import (
     FunctionExecutionResult,
-    get_uc_function_client,
     set_uc_function_client,
 )
 from unitycatalog.ai.databricks import DatabricksFunctionClient
@@ -22,14 +22,18 @@ from unitycatalog.ai.utils.function_processing_utils import get_tool_name
 from tests.helper_functions import requires_databricks
 from unitycatalog_ai_langchain.toolkit import LangchainToolkit
 
+USE_SERVERLESS = "USE_SERVERLESS"
 
-@pytest.fixture
-def client() -> DatabricksFunctionClient:
+
+def get_client() -> DatabricksFunctionClient:
     with mock.patch(
         "unitycatalog.ai.databricks.get_default_databricks_workspace_client",
         return_value=mock.Mock(),
     ):
-        return DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
+        if os.environ.get(USE_SERVERLESS, "false").lower() == "true":
+            return DatabricksFunctionClient()
+        else:
+            return DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
 
 
 CATALOG = "ml"
@@ -69,36 +73,44 @@ $$
             _logger.warning(f"Fail to delete function: {e}")
 
 
-@pytest.fixture
+@contextmanager
 def set_default_client(client: DatabricksFunctionClient):
-    set_uc_function_client(client)
-    yield
-    set_uc_function_client(None)
+    try:
+        set_uc_function_client(client)
+        yield
+    finally:
+        set_uc_function_client(None)
 
 
 @requires_databricks
-def test_toolkit_e2e(set_default_client):
-    client = get_uc_function_client()
-    with create_function_and_cleanup(client) as func_obj:
-        toolkit = LangchainToolkit(function_names=[func_obj.full_function_name])
-        tools = toolkit.tools
-        assert len(tools) == 1
-        tool = tools[0]
-        assert tool.name == func_obj.full_function_name.replace(".", "__")
-        assert tool.description == func_obj.comment
-        assert tool.client_config == client.to_dict()
-        tool.args_schema(**{"code": "print(1)"})
-        result = json.loads(tool.func(code="print(1)"))["value"]
-        assert result == "1\n"
+@pytest.mark.parametrize("use_serverless", [True, False])
+def test_toolkit_e2e(use_serverless, monkeypatch):
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
+    client = get_client()
+    with set_default_client(client):
+        with create_function_and_cleanup(client) as func_obj:
+            toolkit = LangchainToolkit(function_names=[func_obj.full_function_name])
+            tools = toolkit.tools
+            assert len(tools) == 1
+            tool = tools[0]
+            assert tool.name == func_obj.full_function_name.replace(".", "__")
+            assert tool.description == func_obj.comment
+            assert tool.client_config == client.to_dict()
+            tool.args_schema(**{"code": "print(1)"})
+            result = json.loads(tool.func(code="print(1)"))["value"]
+            assert result == "1\n"
 
-        toolkit = LangchainToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
-        assert len(toolkit.tools) >= 1
-        assert get_tool_name(func_obj.full_function_name) in [t.name for t in toolkit.tools]
+            toolkit = LangchainToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
+            assert len(toolkit.tools) >= 1
+            assert get_tool_name(func_obj.full_function_name) in [t.name for t in toolkit.tools]
 
 
 @requires_databricks
-def test_toolkit_e2e_manually_passing_client(client):
-    with create_function_and_cleanup(client) as func_obj:
+@pytest.mark.parametrize("use_serverless", [True, False])
+def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
+    client = get_client()
+    with set_default_client(client), create_function_and_cleanup(client) as func_obj:
         toolkit = LangchainToolkit(function_names=[func_obj.full_function_name], client=client)
         tools = toolkit.tools
         assert len(tools) == 1
@@ -116,9 +128,11 @@ def test_toolkit_e2e_manually_passing_client(client):
 
 
 @requires_databricks
-def test_multiple_toolkits(set_default_client):
-    client = get_uc_function_client()
-    with create_function_and_cleanup(client) as func_obj:
+@pytest.mark.parametrize("use_serverless", [True, False])
+def test_multiple_toolkits(use_serverless, monkeypatch):
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
+    client = get_client()
+    with set_default_client(client), create_function_and_cleanup(client) as func_obj:
         toolkit1 = LangchainToolkit(function_names=[func_obj.full_function_name])
         toolkit2 = LangchainToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
         tool1 = toolkit1.tools[0]
@@ -161,7 +175,8 @@ def generate_function_info():
     )
 
 
-def test_uc_function_to_langchain_tool(client: DatabricksFunctionClient):
+def test_uc_function_to_langchain_tool():
+    client = get_client()
     mock_function_info = generate_function_info()
     with (
         mock.patch(

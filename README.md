@@ -77,3 +77,6 @@ Parameters passed into execute_function must be a dictionary that maps to the in
 result = client.execute_function(full_func_name, {"s": "some_string"})
 assert result.value == "some_string"
 ```
+
+#### Reminders
+- If the function contains `DECIMAL` type parameter, it is converted to python `float` for execution, and this conversion may lose precision.
