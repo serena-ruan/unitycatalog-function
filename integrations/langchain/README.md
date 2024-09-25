@@ -10,7 +10,7 @@ pip install git+ssh://git@github.com/serena-ruan/unitycatalog-ai.git#subdirector
 ```
 
 > [!NOTE]
-> Once this package is published to PyPI, users can install via `pip install unitycatalog-ai-langchain`
+> Once this package is published to PyPI, users can install via `pip install ucai-langchain`
 
 ## Get started
 
@@ -63,14 +63,14 @@ client.create_function(sql_function_body=sql_body)
 
 Now the function is created and stored in the corresponding catalog and schema.
 
-#### Create a LangchainToolkit
-[Langchain tools](https://python.langchain.com/v0.2/docs/concepts/#tools) are utilities designed to be called by a model, and LangchainToolkit provides the ability to use UC functions as tools.
+#### Create an instance of a LangChain compatible tool
+[Langchain tools](https://python.langchain.com/v0.2/docs/concepts/#tools) are utilities designed to be called by a model, and UCFunctionToolkit provides the ability to use UC functions as tools that are recognized natively by LangChain.
 
 ```python
-from unitycatalog_ai_langchain.toolkit import LangchainToolkit
+from ucai_langchain.toolkit import UCFunctionToolkit
 
 # create a LangchainToolkit that include the above UC function
-toolkit = LangchainToolkit(function_names=[f"{CATALOG}.{SCHEMA}.python_exec"])
+toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.python_exec"])
 
 # fetch the tools stored in the toolkit
 tools = toolkit.tools
