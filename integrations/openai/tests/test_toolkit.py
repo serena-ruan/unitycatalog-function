@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import uuid
 from contextlib import contextmanager
 from typing import Dict, List, Optional
@@ -20,26 +21,30 @@ from openai.types.chat.chat_completion import (
 from openai.types.chat.chat_completion_message import ChatCompletionMessageToolCall
 from openai.types.chat.chat_completion_message_tool_call import Function
 from openai.types.completion_usage import CompletionTokensDetails, CompletionUsage
-from unitycatalog.ai.client import get_uc_function_client, set_uc_function_client
+from unitycatalog.ai.client import set_uc_function_client
 from unitycatalog.ai.databricks import DatabricksFunctionClient
-from unitycatalog.ai.utils import get_tool_name
+from unitycatalog.ai.utils.function_processing_utils import get_tool_name
 
 from tests.helper_functions import requires_databricks
 from unitycatalog_ai_openai.toolkit import OpenAIToolkit
 
 CATALOG = "ml"
 SCHEMA = "serena_uc_test"
+USE_SERVERLESS = "USE_SERVERLESS"
 
 _logger = logging.getLogger(__name__)
 
 
-@pytest.fixture
-def client() -> DatabricksFunctionClient:
-    with mock.patch(
-        "unitycatalog.ai.databricks.get_default_databricks_workspace_client",
-        return_value=mock.Mock(),
-    ):
-        return DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
+def get_client() -> DatabricksFunctionClient:
+    # with mock.patch(
+    #     "unitycatalog.ai.databricks.get_default_databricks_workspace_client",
+    #     return_value=mock.Mock(),
+    # ):
+    if os.environ.get(USE_SERVERLESS, "false").lower() == "true":
+        return DatabricksFunctionClient()
+    else:
+        # return DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
+        return DatabricksFunctionClient(warehouse_id="63f9f8ed4cedd92b")
 
 
 def mock_chat_completion_response(func_name: str, function: Function):
@@ -116,17 +121,21 @@ $$
             _logger.warning(f"Fail to delete function: {e}")
 
 
-@pytest.fixture
+@contextmanager
 def set_default_client(client: DatabricksFunctionClient):
-    set_uc_function_client(client)
-    yield
-    set_uc_function_client(None)
+    try:
+        set_uc_function_client(client)
+        yield
+    finally:
+        set_uc_function_client(None)
 
 
 @requires_databricks
-def test_tool_calling(set_default_client):
-    client = get_uc_function_client()
-    with create_function_and_cleanup(client) as func_name:
+@pytest.mark.parametrize("use_serverless", [True, False])
+def test_tool_calling(use_serverless, monkeypatch):
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
+    client = get_client()
+    with set_default_client(client), create_function_and_cleanup(client) as func_name:
         toolkit = OpenAIToolkit(function_names=[func_name])
         tools = toolkit.tools
         assert len(tools) == 1
@@ -184,7 +193,9 @@ def test_tool_calling(set_default_client):
 
 
 @requires_databricks
-def test_tool_calling_work_with_non_json_schema(client):
+@pytest.mark.parametrize("use_serverless", [True, False])
+def test_tool_calling_work_with_non_json_schema(use_serverless, monkeypatch):
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     func_name = random_func_name()
     function_name = func_name.split(".")[-1]
     sql_body = f"""CREATE FUNCTION {func_name}(start DATE, end DATE)
@@ -196,7 +207,11 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
             WHERE extract(DAYOFWEEK_ISO FROM day) BETWEEN 1 AND 5;
 """
 
-    with create_function_and_cleanup(client, func_name=func_name, sql_body=sql_body):
+    client = get_client()
+    with (
+        set_default_client(client),
+        create_function_and_cleanup(client, func_name=func_name, sql_body=sql_body),
+    ):
         toolkit = OpenAIToolkit(function_names=[func_name], client=client)
         tools = toolkit.tools
         assert len(tools) == 1
@@ -256,7 +271,9 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
 
 
 @requires_databricks
-def test_tool_choice_param(client):
+@pytest.mark.parametrize("use_serverless", [True, False])
+def test_tool_choice_param(use_serverless, monkeypatch):
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     cap_func = random_func_name()
     sql_body1 = f"""CREATE FUNCTION {cap_func}(s STRING)
 RETURNS STRING
@@ -275,6 +292,7 @@ AS $$
   return s.upper()
 $$
 """
+    client = get_client()
     with (
         create_function_and_cleanup(client, func_name=cap_func, sql_body=sql_body1),
         create_function_and_cleanup(client, func_name=upper_func, sql_body=sql_body2),
@@ -347,10 +365,13 @@ $$
         assert result.value == "ABC"
 
 
-def test_openai_toolkit_initialization(client):
+@pytest.mark.parametrize("use_serverless", [True, False])
+def test_openai_toolkit_initialization(use_serverless, monkeypatch):
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
+    client = get_client()
     with pytest.raises(
         ValueError,
-        match=r"No client provided, either set the client when creating the tool, or set the default client",
+        match=r"No client provided, either set the client when creating a toolkit or set the default client",
     ):
         toolkit = OpenAIToolkit(function_names=[])
 
@@ -376,44 +397,48 @@ def generate_function_info(parameters: List[Dict], catalog="catalog", schema="sc
     )
 
 
-def test_function_definition_generation(set_default_client):
-    function_info = generate_function_info(
-        [
-            {
-                "name": "code",
-                "type_text": "string",
-                "type_json": '{"name":"code","type":"string","nullable":true,"metadata":{"comment":"Python code to execute. Remember to print the final result to stdout."}}',
-                "type_name": "STRING",
-                "type_precision": 0,
-                "type_scale": 0,
-                "position": 0,
-                "parameter_type": "PARAM",
-                "comment": "Python code to execute. Remember to print the final result to stdout.",
-            }
-        ]
-    )
+@pytest.mark.parametrize("use_serverless", [True, False])
+def test_function_definition_generation(use_serverless, monkeypatch):
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
+    client = get_client()
+    with set_default_client(client):
+        function_info = generate_function_info(
+            [
+                {
+                    "name": "code",
+                    "type_text": "string",
+                    "type_json": '{"name":"code","type":"string","nullable":true,"metadata":{"comment":"Python code to execute. Remember to print the final result to stdout."}}',
+                    "type_name": "STRING",
+                    "type_precision": 0,
+                    "type_scale": 0,
+                    "position": 0,
+                    "parameter_type": "PARAM",
+                    "comment": "Python code to execute. Remember to print the final result to stdout.",
+                }
+            ]
+        )
 
-    function_definition = OpenAIToolkit.uc_function_to_openai_function_definition(
-        function_info=function_info
-    )
-    assert function_definition == {
-        "type": "function",
-        "function": {
-            "name": get_tool_name(function_info.full_name),
-            "description": function_info.comment,
-            "strict": True,
-            "parameters": {
-                "properties": {
-                    "code": {
-                        "anyOf": [{"type": "string"}, {"type": "null"}],
-                        "description": "Python code to execute. Remember to print the final result to stdout.",
-                        "title": "Code",
-                    }
+        function_definition = OpenAIToolkit.uc_function_to_openai_function_definition(
+            function_info=function_info
+        )
+        assert function_definition == {
+            "type": "function",
+            "function": {
+                "name": get_tool_name(function_info.full_name),
+                "description": function_info.comment,
+                "strict": True,
+                "parameters": {
+                    "properties": {
+                        "code": {
+                            "anyOf": [{"type": "string"}, {"type": "null"}],
+                            "description": "Python code to execute. Remember to print the final result to stdout.",
+                            "title": "Code",
+                        }
+                    },
+                    "title": get_tool_name(function_info.full_name) + "__params",
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["code"],
                 },
-                "title": get_tool_name(function_info.full_name) + "__params",
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["code"],
             },
-        },
-    }
+        }

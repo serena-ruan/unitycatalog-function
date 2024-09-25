@@ -1,17 +1,15 @@
-import os
 from typing import Any, Dict, List, Optional
 
 from openai.lib._tools import pydantic_function_tool
 from openai.types.chat import ChatCompletionToolParam
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from unitycatalog.ai.client import BaseFunctionClient, validate_or_set_default_client
-from unitycatalog.ai.utils import (
+from unitycatalog.ai.client import BaseFunctionClient
+from unitycatalog.ai.utils.client_utils import validate_or_set_default_client
+from unitycatalog.ai.utils.function_processing_utils import (
     generate_function_input_params_schema,
     get_tool_name,
-    validate_full_function_name,
+    process_function_names,
 )
-
-UC_LIST_FUNCTIONS_MAX_RESULTS = "100"
 
 
 class OpenAIToolkit(BaseModel):
@@ -36,38 +34,12 @@ class OpenAIToolkit(BaseModel):
     def validate_toolkit(self) -> "OpenAIToolkit":
         self.client = validate_or_set_default_client(self.client)
 
-        tools_dict = {}
-        for name in self.function_names:
-            if name not in tools_dict:
-                full_func_name = validate_full_function_name(name)
-                if full_func_name.function_name == "*":
-                    token = None
-                    while True:
-                        functions = self.client.list_functions(
-                            catalog=full_func_name.catalog_name,
-                            schema=full_func_name.schema_name,
-                            max_results=int(
-                                os.environ.get(
-                                    "UC_LIST_FUNCTIONS_MAX_RESULTS", UC_LIST_FUNCTIONS_MAX_RESULTS
-                                )
-                            ),
-                            page_token=token,
-                        )
-                        for f in functions:
-                            if f.full_name not in tools_dict:
-                                tools_dict[f.full_name] = (
-                                    self.uc_function_to_openai_function_definition(
-                                        client=self.client, function_info=f
-                                    )
-                                )
-                        token = functions.token
-                        if token is None:
-                            break
-                else:
-                    tools_dict[name] = self.uc_function_to_openai_function_definition(
-                        client=self.client, function_name=name
-                    )
-        self.tools_dict = tools_dict
+        self.tools_dict = process_function_names(
+            function_names=self.function_names,
+            tools_dict={},
+            client=self.client,
+            uc_function_to_tool_func=self.uc_function_to_openai_function_definition,
+        )
         return self
 
     @classmethod
@@ -83,8 +55,8 @@ class OpenAIToolkit(BaseModel):
 
         Args:
             client: The client for managing functions, must be an instance of BaseFunctionClient
-            function_name (optional): The full name of the function in the form of 'catalog.schema.function'
-            function_info (optional): The function info object returned by the client.get_function() method
+            function_name: The full name of the function in the form of 'catalog.schema.function'
+            function_info: The function info object returned by the client.get_function() method
 
             .. note::
                 Only one of function_name or function_info should be provided.
