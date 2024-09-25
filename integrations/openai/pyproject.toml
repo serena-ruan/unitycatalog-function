@@ -40,7 +40,7 @@ packages = ["src/unitycatalog_ai_openai"]
 line-length = 100
 target-version = "py39"
 
-[too.ruff.lint]
+[tool.ruff.lint]
 select = [
   # isort
   "I",

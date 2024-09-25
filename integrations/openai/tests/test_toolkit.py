@@ -13,19 +13,12 @@ from databricks.sdk.service.catalog import (
     FunctionParameterInfo,
     FunctionParameterInfos,
 )
-from openai.types.chat.chat_completion import (
-    ChatCompletion,
-    ChatCompletionMessage,
-    Choice,
-)
-from openai.types.chat.chat_completion_message import ChatCompletionMessageToolCall
 from openai.types.chat.chat_completion_message_tool_call import Function
-from openai.types.completion_usage import CompletionTokensDetails, CompletionUsage
 from unitycatalog.ai.client import set_uc_function_client
 from unitycatalog.ai.databricks import DatabricksFunctionClient
 from unitycatalog.ai.utils.function_processing_utils import get_tool_name
 
-from tests.helper_functions import requires_databricks
+from tests.helper_functions import mock_chat_completion_response, mock_choice, requires_databricks
 from unitycatalog_ai_openai.toolkit import OpenAIToolkit
 
 CATALOG = "ml"
@@ -36,52 +29,14 @@ _logger = logging.getLogger(__name__)
 
 
 def get_client() -> DatabricksFunctionClient:
-    # with mock.patch(
-    #     "unitycatalog.ai.databricks.get_default_databricks_workspace_client",
-    #     return_value=mock.Mock(),
-    # ):
-    if os.environ.get(USE_SERVERLESS, "false").lower() == "true":
-        return DatabricksFunctionClient()
-    else:
-        # return DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
-        return DatabricksFunctionClient(warehouse_id="63f9f8ed4cedd92b")
-
-
-def mock_chat_completion_response(func_name: str, function: Function):
-    return ChatCompletion(
-        id="chatcmpl-mock",
-        choices=[
-            Choice(
-                finish_reason="tool_calls",
-                index=0,
-                logprobs=None,
-                message=ChatCompletionMessage(
-                    content=None,
-                    refusal=None,
-                    role="assistant",
-                    function_call=None,
-                    tool_calls=[
-                        ChatCompletionMessageToolCall(
-                            id="call_mock",
-                            function=function,
-                            type="function",
-                        )
-                    ],
-                ),
-            )
-        ],
-        created=1727076144,
-        model="gpt-4o-mini-2024-07-18",
-        object="chat.completion",
-        service_tier=None,
-        system_fingerprint="fp_mock",
-        usage=CompletionUsage(
-            completion_tokens=32,
-            prompt_tokens=116,
-            total_tokens=148,
-            completion_tokens_details=CompletionTokensDetails(reasoning_tokens=0),
-        ),
-    )
+    with mock.patch(
+        "unitycatalog.ai.databricks.get_default_databricks_workspace_client",
+        return_value=mock.Mock(),
+    ):
+        if os.environ.get(USE_SERVERLESS, "false").lower() == "true":
+            return DatabricksFunctionClient()
+        else:
+            return DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
 
 
 def random_func_name():
@@ -152,7 +107,6 @@ def test_tool_calling(use_serverless, monkeypatch):
         with mock.patch(
             "openai.chat.completions.create",
             return_value=mock_chat_completion_response(
-                converted_func_name,
                 function=Function(
                     arguments='{"code":"result = 2**10\\nprint(result)"}',
                     name=converted_func_name,
@@ -166,6 +120,73 @@ def test_tool_calling(use_serverless, monkeypatch):
             )
             tool_calls = response.choices[0].message.tool_calls
             assert len(tool_calls) == 1
+            tool_call = tool_calls[0]
+            assert tool_call.function.name == converted_func_name
+            arguments = json.loads(tool_call.function.arguments)
+            assert isinstance(arguments.get("code"), str)
+
+            # execute the function based on the arguments
+            result = client.execute_function(func_name, arguments)
+            assert result.value == "1024\n"
+
+            # Create a message containing the result of the function call
+            function_call_result_message = {
+                "role": "tool",
+                "content": json.dumps({"content": result.value}),
+                "tool_call_id": tool_call.id,
+            }
+            assistant_message = response.choices[0].message.to_dict()
+            completion_payload = {
+                "model": "gpt-4o-mini",
+                "messages": [*messages, assistant_message, function_call_result_message],
+            }
+            # Generate final response
+            openai.chat.completions.create(
+                model=completion_payload["model"], messages=completion_payload["messages"]
+            )
+
+
+@requires_databricks
+@pytest.mark.parametrize("use_serverless", [True, False])
+def test_tool_calling_with_multiple_choices(use_serverless, monkeypatch):
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
+    client = get_client()
+    with set_default_client(client), create_function_and_cleanup(client) as func_name:
+        toolkit = OpenAIToolkit(function_names=[func_name])
+        tools = toolkit.tools
+        assert len(tools) == 1
+
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a helpful customer support assistant. Use the supplied tools to assist the user.",
+            },
+            {"role": "user", "content": "What is the result of 2**10?"},
+        ]
+
+        converted_func_name = get_tool_name(func_name)
+        function = Function(
+            arguments='{"code":"result = 2**10\\nprint(result)"}',
+            name=converted_func_name,
+        )
+        with mock.patch(
+            "openai.chat.completions.create",
+            return_value=mock_chat_completion_response(
+                choices=[mock_choice(function), mock_choice(function), mock_choice(function)],
+            ),
+        ):
+            response = openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                tools=tools,
+                n=3,
+            )
+            choices = response.choices
+            assert len(choices) == 3
+            # only choose one of the choices
+            tool_calls = choices[0].message.tool_calls
+            assert len(tool_calls) == 1
+
             tool_call = tool_calls[0]
             assert tool_call.function.name == converted_func_name
             arguments = json.loads(tool_call.function.arguments)
@@ -229,7 +250,6 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
         with mock.patch(
             "openai.chat.completions.create",
             return_value=mock_chat_completion_response(
-                converted_func_name,
                 function=Function(
                     arguments='{"start":"2024-01-01","end":"2024-01-07"}',
                     name=converted_func_name,
@@ -312,7 +332,6 @@ $$
         with mock.patch(
             "openai.chat.completions.create",
             return_value=mock_chat_completion_response(
-                get_tool_name(cap_func),
                 function=Function(
                     arguments='{"s":"abc"}',
                     name=get_tool_name(cap_func),
@@ -343,7 +362,6 @@ $$
         with mock.patch(
             "openai.chat.completions.create",
             return_value=mock_chat_completion_response(
-                get_tool_name(upper_func),
                 function=Function(
                     arguments='{"s":"abc"}',
                     name=get_tool_name(upper_func),
