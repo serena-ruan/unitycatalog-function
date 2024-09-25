@@ -106,11 +106,32 @@ class DatabricksFunctionClient(BaseFunctionClient):
     Databricks UC function calling client
     """
 
-    def __init__(self, client: Optional["WorkspaceClient"] = None, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        client: Optional["WorkspaceClient"] = None,
+        *,
+        warehouse_id: Optional[str] = None,
+        cluster_id: Optional[str] = None,
+        profile: Optional[str] = None,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Databricks UC function calling client.
+
+        Args:
+            client: The databricks workspace client. If it's None, a default databricks workspace client
+                is generated based on the configuration. Defaults to None.
+            warehouse_id (str, optional): The warehouse id to use for executing functions. This field is
+                not needed if serverless is enabled in the databricks workspace. Defaults to None.
+            cluster_id (str, optional): The cluster id to use for creating functions. Make sure the cluster
+                is up and running before creating the function. This field is not needed if databricks-connect
+                is installed and serverless is enabled in databricks workspace. Defaults to None.
+            profile (str, optional): The configuration profile to use for databricks connect. Defaults to None.
+        """
         self.client = client or get_default_databricks_workspace_client()
-        self.warehouse_id = kwargs.get("warehouse_id")
-        self.cluster_id = kwargs.get("cluster_id")
-        self.profile = kwargs.get("profile")
+        self.warehouse_id = warehouse_id
+        self.cluster_id = cluster_id
+        self.profile = profile
         # TODO: add CI to run this in Databricks notebook
         self.spark = _try_get_spark_session_in_dbr()
         super().__init__()
