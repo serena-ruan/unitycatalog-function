@@ -1,7 +1,5 @@
-import os
 from typing import List, Optional
 
-import pytest
 from openai.types.chat.chat_completion import (
     ChatCompletion,
     ChatCompletionMessage,
@@ -10,13 +8,6 @@ from openai.types.chat.chat_completion import (
 from openai.types.chat.chat_completion_message import ChatCompletionMessageToolCall
 from openai.types.chat.chat_completion_message_tool_call import Function
 from openai.types.completion_usage import CompletionTokensDetails, CompletionUsage
-
-
-def requires_databricks(test_func):
-    return pytest.mark.skipif(
-        os.environ.get("TEST_IN_DATABRICKS", "false").lower() != "true",
-        reason="This function test relies on connecting to a databricks workspace",
-    )(test_func)
 
 
 def mock_chat_completion_response(
