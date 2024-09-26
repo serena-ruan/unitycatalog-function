@@ -42,9 +42,8 @@ class UCFunctionToolkit(BaseModel):
         )
         return self
 
-    @classmethod
+    @staticmethod
     def uc_function_to_openai_function_definition(
-        cls,
         *,
         client: Optional[BaseFunctionClient] = None,
         function_name: Optional[str] = None,
