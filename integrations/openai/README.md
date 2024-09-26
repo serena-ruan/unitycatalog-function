@@ -10,7 +10,7 @@ pip install git+https://github.com/serena-ruan/unitycatalog-ai.git#subdirectory=
 ```
 
 > [!NOTE]
-> Once this package is published to PyPI, users can install via `pip install unitycatalog-ai-openai`
+> Once this package is published to PyPI, users can install via `pip install ucai-openai`
 
 ## Get started
 
@@ -63,14 +63,14 @@ client.create_function(sql_function_body=sql_body)
 
 Now the function is created and stored in the corresponding catalog and schema.
 
-#### Create an OpenAIToolkit
-[OpenAI function calling](https://platform.openai.com/docs/guides/function-calling) allows you to connect models like `gpt-4o-mini` to external tools and systems, and OpenAIToolkit provides the ability to use UC functions as tools.
+#### Create an UCFunctionToolkit
+[OpenAI function calling](https://platform.openai.com/docs/guides/function-calling) allows you to connect models like `gpt-4o-mini` to external tools and systems, and UCFunctionToolkit provides the ability to use UC functions as tools in OpenAI calls.
 
 ```python
-from unitycatalog_ai_openai.toolkit import OpenAIToolkit
+from ucai_openai.toolkit import UCFunctionToolkit
 
-# create an OpenAIToolkit that include the above UC function
-toolkit = OpenAIToolkit(function_names=[f"{CATALOG}.{SCHEMA}.python_exec"])
+# create an UCFunctionToolkit that includes the above UC function
+toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.python_exec"])
 
 # fetch the tools stored in the toolkit
 tools = toolkit.tools
@@ -141,12 +141,12 @@ openai.chat.completions.create(
 
 #### What if I want to use different client for different toolkits?
 
-To use different clients during toolkit creation stage, you could pass the client directly to OpenAIToolkit:
+To use different clients during toolkit creation stage, you could pass the client directly to UCFunctionToolkit:
 
 ```python
-from unitycatalog_ai_openai.toolkit import OpenAIToolkit
+from unitycatalog_ai_openai.toolkit import UCFunctionToolkit
 
-toolkit = OpenAIToolkit(function_names=[...], client=your_own_client)
+toolkit = UCFunctionToolkit(function_names=[...], client=your_own_client)
 ```
 
 Please note that this client is only used for retrieving UC functions so we can generate OpenAI accepted function definitions, which you could pass to the OpenAI API call. After getting a response from the OpenAI API, you should be responsible for executing them using the corresponding client with `client.execute_function(...)` as above example.

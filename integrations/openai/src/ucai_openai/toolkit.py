@@ -12,7 +12,7 @@ from unitycatalog.ai.utils.function_processing_utils import (
 )
 
 
-class OpenAIToolkit(BaseModel):
+class UCFunctionToolkit(BaseModel):
     function_names: List[str] = Field(
         default_factory=list,
         description="The list of function names in the form of 'catalog.schema.function'",
@@ -31,7 +31,7 @@ class OpenAIToolkit(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode="after")
-    def validate_toolkit(self) -> "OpenAIToolkit":
+    def validate_toolkit(self) -> "UCFunctionToolkit":
         self.client = validate_or_set_default_client(self.client)
 
         self.tools_dict = process_function_names(

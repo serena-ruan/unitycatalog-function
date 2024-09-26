@@ -1,7 +1,7 @@
 [project]
-name = "unitycatalog-ai-openai"
+name = "ucai-openai"
 version = "0.0.1"
-description = "Support for Unity Catalog functions as openai tools"
+description = "Support for Unity Catalog functions as OpenAI tools"
 authors = [
     { name="Serena Ruan", email="serena.ruan@databricks.com" }
 ]
@@ -30,11 +30,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build]
 include = [
-  "src/unitycatalog_ai_openai/*"
+  "src/ucai_openai/*"
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/unitycatalog_ai_openai"]
+packages = ["src/ucai_openai"]
 
 [tool.ruff]
 line-length = 100

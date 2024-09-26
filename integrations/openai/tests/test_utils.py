@@ -7,7 +7,7 @@ from unitycatalog.ai.client import FunctionExecutionResult
 from unitycatalog.ai.databricks import DatabricksFunctionClient
 
 from tests.helper_functions import mock_chat_completion_response, mock_choice
-from unitycatalog_ai_openai.utils import generate_tool_call_messages
+from ucai_openai.utils import generate_tool_call_messages
 
 
 @pytest.fixture

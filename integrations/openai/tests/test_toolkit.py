@@ -19,7 +19,7 @@ from unitycatalog.ai.databricks import DatabricksFunctionClient
 from unitycatalog.ai.utils.function_processing_utils import get_tool_name
 
 from tests.helper_functions import mock_chat_completion_response, mock_choice, requires_databricks
-from unitycatalog_ai_openai.toolkit import OpenAIToolkit
+from ucai_openai.toolkit import UCFunctionToolkit
 
 CATALOG = "ml"
 SCHEMA = "serena_uc_test"
@@ -91,7 +91,7 @@ def test_tool_calling(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
     with set_default_client(client), create_function_and_cleanup(client) as func_name:
-        toolkit = OpenAIToolkit(function_names=[func_name])
+        toolkit = UCFunctionToolkit(function_names=[func_name])
         tools = toolkit.tools
         assert len(tools) == 1
 
@@ -152,7 +152,7 @@ def test_tool_calling_with_multiple_choices(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
     with set_default_client(client), create_function_and_cleanup(client) as func_name:
-        toolkit = OpenAIToolkit(function_names=[func_name])
+        toolkit = UCFunctionToolkit(function_names=[func_name])
         tools = toolkit.tools
         assert len(tools) == 1
 
@@ -233,7 +233,7 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
         set_default_client(client),
         create_function_and_cleanup(client, func_name=func_name, sql_body=sql_body),
     ):
-        toolkit = OpenAIToolkit(function_names=[func_name], client=client)
+        toolkit = UCFunctionToolkit(function_names=[func_name], client=client)
         tools = toolkit.tools
         assert len(tools) == 1
         assert tools[0]["function"]["strict"] is False
@@ -317,7 +317,7 @@ $$
         create_function_and_cleanup(client, func_name=cap_func, sql_body=sql_body1),
         create_function_and_cleanup(client, func_name=upper_func, sql_body=sql_body2),
     ):
-        toolkit = OpenAIToolkit(function_names=[cap_func, upper_func], client=client)
+        toolkit = UCFunctionToolkit(function_names=[cap_func, upper_func], client=client)
         tools = toolkit.tools
         assert len(tools) == 2
 
@@ -391,14 +391,14 @@ def test_openai_toolkit_initialization(use_serverless, monkeypatch):
         ValueError,
         match=r"No client provided, either set the client when creating a toolkit or set the default client",
     ):
-        toolkit = OpenAIToolkit(function_names=[])
+        toolkit = UCFunctionToolkit(function_names=[])
 
     set_uc_function_client(client)
-    toolkit = OpenAIToolkit(function_names=[])
+    toolkit = UCFunctionToolkit(function_names=[])
     assert len(toolkit.tools) == 0
     set_uc_function_client(None)
 
-    toolkit = OpenAIToolkit(function_names=[], client=client)
+    toolkit = UCFunctionToolkit(function_names=[], client=client)
     assert len(toolkit.tools) == 0
 
 
@@ -436,7 +436,7 @@ def test_function_definition_generation(use_serverless, monkeypatch):
             ]
         )
 
-        function_definition = OpenAIToolkit.uc_function_to_openai_function_definition(
+        function_definition = UCFunctionToolkit.uc_function_to_openai_function_definition(
             function_info=function_info
         )
         assert function_definition == {
