@@ -110,6 +110,26 @@ def get_tool_name(func_name: str) -> str:
     return tool_name
 
 
+def construct_original_function_name(tool_name: str) -> str:
+    """
+    Args:
+        tool_name: The tool name in the form of `catalog__schema__function`.
+            It's the tool name converted by `get_tool_name` function.
+
+    Note:
+        This only works if catalog, schema and function names in the
+        original function name don't include `__` and the total length
+        of the original function name is less than 64 characters.
+
+    Returns:
+        Original function name in the form of `catalog.schema.function`.
+    """
+    parts = tool_name.split("__")
+    if len(parts) != 3:
+        raise ValueError(f"Invalid tool name: {tool_name}")
+    return ".".join(parts)
+
+
 def process_function_names(
     function_names: List[str],
     tools_dict: Dict[str, Any],
