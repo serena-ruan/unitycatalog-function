@@ -1,4 +1,4 @@
-## Using Unity Catalog AI with OpenAI
+# Using Unity Catalog AI with OpenAI
 
 Integrate Unity Catalog AI package with OpenAI to allow seamless usage of UC functions as tools in agents application.
 
@@ -19,6 +19,7 @@ pip install git+https://github.com/serena-ruan/unitycatalog-ai.git#subdirectory=
 To use Databricks-managed Unity Catalog with this package, follow the [instructions](https://docs.databricks.com/en/dev-tools/cli/authentication.html#authentication-for-the-databricks-cli) to authenticate to your workspace and ensure that your access token has workspace-level privilege for managing UC functions.
 
 #### Client setup
+
 Initialize a client for managing UC functions in a Databricks workspace, and set it as the global client.
 
 ```python
@@ -35,6 +36,7 @@ set_uc_function_client(client)
 ```
 
 #### Create a function in UC
+
 Create a python UDF in Unity Catalog with the client
 
 ```python
@@ -64,6 +66,7 @@ client.create_function(sql_function_body=sql_body)
 Now the function is created and stored in the corresponding catalog and schema.
 
 #### Create an UCFunctionToolkit
+
 [OpenAI function calling](https://platform.openai.com/docs/guides/function-calling) allows you to connect models like `gpt-4o-mini` to external tools and systems, and UCFunctionToolkit provides the ability to use UC functions as tools in OpenAI calls.
 
 ```python
@@ -80,6 +83,7 @@ python_exec_tool = tools[0]
 ```
 
 #### Use the tools in OpenAI models
+
 Now we use the tools when calling OpenAI Chat Completion API.
 
 ```python
@@ -150,3 +154,16 @@ toolkit = UCFunctionToolkit(function_names=[...], client=your_own_client)
 ```
 
 Please note that this client is only used for retrieving UC functions so we can generate OpenAI accepted function definitions, which you could pass to the OpenAI API call. After getting a response from the OpenAI API, you should be responsible for executing them using the corresponding client with `client.execute_function(...)` as above example.
+
+#### How should I handle the tool call response?
+
+We provide a helper function for converting OpenAI ChatCompletion response to messages that can be send over for response creation.
+
+```python
+from ucai_openai.utils import generate_tool_call_messages
+
+messages = generate_tool_call_messages(response=response, client=client)
+print(messages)
+```
+
+If the response contains multiple choices, you could pass `choice_index` (starting from 0) to `generate_tool_call_messages` to choose one choice. Multiple choices are not supported yet.
