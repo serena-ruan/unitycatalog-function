@@ -20,7 +20,7 @@ from unitycatalog.ai.databricks import DatabricksFunctionClient
 from unitycatalog.ai.utils.function_processing_utils import get_tool_name
 
 from tests.helper_functions import requires_databricks
-from unitycatalog_ai_langchain.toolkit import LangchainToolkit
+from ucai_langchain.toolkit import UCFunctionToolkit
 
 USE_SERVERLESS = "USE_SERVERLESS"
 
@@ -89,7 +89,7 @@ def test_toolkit_e2e(use_serverless, monkeypatch):
     client = get_client()
     with set_default_client(client):
         with create_function_and_cleanup(client) as func_obj:
-            toolkit = LangchainToolkit(function_names=[func_obj.full_function_name])
+            toolkit = UCFunctionToolkit(function_names=[func_obj.full_function_name])
             tools = toolkit.tools
             assert len(tools) == 1
             tool = tools[0]
@@ -100,7 +100,7 @@ def test_toolkit_e2e(use_serverless, monkeypatch):
             result = json.loads(tool.func(code="print(1)"))["value"]
             assert result == "1\n"
 
-            toolkit = LangchainToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
+            toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
             assert len(toolkit.tools) >= 1
             assert get_tool_name(func_obj.full_function_name) in [t.name for t in toolkit.tools]
 
@@ -111,7 +111,7 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
     with set_default_client(client), create_function_and_cleanup(client) as func_obj:
-        toolkit = LangchainToolkit(function_names=[func_obj.full_function_name], client=client)
+        toolkit = UCFunctionToolkit(function_names=[func_obj.full_function_name], client=client)
         tools = toolkit.tools
         assert len(tools) == 1
         tool = tools[0]
@@ -122,7 +122,7 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
         result = json.loads(tool.func(code="print(1)"))["value"]
         assert result == "1\n"
 
-        toolkit = LangchainToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"], client=client)
+        toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"], client=client)
         assert len(toolkit.tools) >= 1
         assert get_tool_name(func_obj.full_function_name) in [t.name for t in toolkit.tools]
 
@@ -133,8 +133,8 @@ def test_multiple_toolkits(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
     with set_default_client(client), create_function_and_cleanup(client) as func_obj:
-        toolkit1 = LangchainToolkit(function_names=[func_obj.full_function_name])
-        toolkit2 = LangchainToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
+        toolkit1 = UCFunctionToolkit(function_names=[func_obj.full_function_name])
+        toolkit2 = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
         tool1 = toolkit1.tools[0]
         tool2 = [t for t in toolkit2.tools if t.name == get_tool_name(func_obj.full_function_name)][
             0
@@ -145,10 +145,10 @@ def test_multiple_toolkits(use_serverless, monkeypatch):
 
 def test_toolkit_creation_errors():
     with pytest.raises(ValueError, match=r"No client provided"):
-        LangchainToolkit(function_names=[])
+        UCFunctionToolkit(function_names=[])
 
     with pytest.raises(ValueError, match=r"instance of BaseFunctionClient expected"):
-        LangchainToolkit(function_names=[], client="client")
+        UCFunctionToolkit(function_names=[], client="client")
 
 
 def generate_function_info():
@@ -188,7 +188,7 @@ def test_uc_function_to_langchain_tool():
             return_value=FunctionExecutionResult(format="SCALAR", value="some_string"),
         ),
     ):
-        tool = LangchainToolkit.uc_function_to_langchain_tool(
+        tool = UCFunctionToolkit.uc_function_to_langchain_tool(
             client=client, function_name=f"{CATALOG}.{SCHEMA}.test"
         )
         assert tool.name == get_tool_name(f"{CATALOG}.{SCHEMA}.test")

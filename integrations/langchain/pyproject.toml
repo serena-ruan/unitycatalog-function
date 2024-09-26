@@ -1,7 +1,7 @@
 [project]
-name = "unitycatalog-ai-langchain"
+name = "ucai-langchain"
 version = "0.0.1"
-description = "Support for Unity Catalog functions as langchain tools"
+description = "Support for Unity Catalog functions as LangChain tools"
 authors = [
     { name="Serena Ruan", email="serena.ruan@databricks.com" }
 ]
@@ -30,11 +30,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build]
 include = [
-  "src/unitycatalog_ai_langchain/*"
+  "src/ucai_langchain/*"
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/unitycatalog_ai_langchain"]
+packages = ["src/ucai_langchain"]
 
 [tool.ruff]
 line-length = 100

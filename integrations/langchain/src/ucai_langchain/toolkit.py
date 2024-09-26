@@ -18,7 +18,7 @@ class UnityCatalogTool(StructuredTool):
     )
 
 
-class LangchainToolkit(BaseModel):
+class UCFunctionToolkit(BaseModel):
     function_names: List[str] = Field(
         default_factory=list,
         description="The list of function names in the form of 'catalog.schema.function'",
