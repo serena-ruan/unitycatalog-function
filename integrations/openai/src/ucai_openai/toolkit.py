@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from openai.lib._tools import pydantic_function_tool
+from openai import pydantic_function_tool
 from openai.types.chat import ChatCompletionToolParam
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from unitycatalog.ai.client import BaseFunctionClient
