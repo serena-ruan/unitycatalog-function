@@ -69,7 +69,7 @@ Now the function is created and stored in the corresponding catalog and schema.
 ```python
 from ucai_langchain.toolkit import UCFunctionToolkit
 
-# create a LangchainToolkit that include the above UC function
+# create a UCFunctionToolkit that includes the above UC function
 toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.python_exec"])
 
 # fetch the tools stored in the toolkit
