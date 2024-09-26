@@ -262,9 +262,9 @@ class DatabricksFunctionClient(BaseFunctionClient):
             function_name: The name of the function to get.
             kwargs: additional key-value pairs to include when getting the function.
 
-            ..Note::
-                The function name shouldn't be *, to get all functions in a catalog and schema,
-                please use list_functions API instead.
+        Note:
+            The function name shouldn't be *, to get all functions in a catalog and schema,
+            please use list_functions API instead.
 
         Returns:
             FunctionInfo: The function info.

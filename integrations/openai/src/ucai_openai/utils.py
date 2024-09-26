@@ -14,12 +14,17 @@ def generate_tool_call_messages(
     """
     Generate tool call messages from the response.
 
+    Note:
+        This function relies on that the UC function names don't contain '__' in the catalog, schema
+        or function names, and the total length of the function name is less than 64 characters.
+        Otherwise, the original function name is not guaranteed to be correctly reconstructed.
+
     Args:
         response: The chat completion response object returned by the OpenAI API.
         client: The client for managing functions, must be an instance of BaseFunctionClient.
             Defaults to None.
-        choice_index: The index of the choice to process. Defaults to 0.
-            .. note:: multiple choices are not supported yet.
+        choice_index: The index of the choice to process. Defaults to 0. Note that multiple
+            choices are not supported yet.
 
     Returns:
         A list of messages containing the assistant message and the function call results.

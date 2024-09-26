@@ -116,10 +116,10 @@ def construct_original_function_name(tool_name: str) -> str:
         tool_name: The tool name in the form of `catalog__schema__function`.
             It's the tool name converted by `get_tool_name` function.
 
-        .. note::
-            This only works if catalog, schema and function names in the
-            original function name don't include `__` and the total length
-            of the original function name is less than 64 characters.
+    Note:
+        This only works if catalog, schema and function names in the
+        original function name don't include `__` and the total length
+        of the original function name is less than 64 characters.
 
     Returns:
         Original function name in the form of `catalog.schema.function`.
