@@ -1,17 +1,16 @@
 import json
 from typing import Any, Callable, Dict, List, Optional
-from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 from llama_index.core.tools import FunctionTool
 from llama_index.core.tools.types import ToolMetadata
-
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from unitycatalog.ai.client import BaseFunctionClient
+from unitycatalog.ai.utils.client_utils import validate_or_set_default_client
 from unitycatalog.ai.utils.function_processing_utils import (
     generate_function_input_params_schema,
     get_tool_name,
     process_function_names,
 )
-from unitycatalog.ai.utils.client_utils import validate_or_set_default_client
 
 
 class UnityCatalogTool(FunctionTool):
@@ -39,7 +38,7 @@ class UnityCatalogTool(FunctionTool):
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
         """
-        super().__init__(fn=fn, metadata=metadata, *args, **kwargs)
+        super().__init__(*args, fn=fn, metadata=metadata, **kwargs)
         self.client_config = client_config
 
 
@@ -93,9 +92,8 @@ class UCFunctionToolkit(BaseModel):
         )
         return self
 
-    @classmethod
+    @staticmethod
     def uc_function_to_llama_tool(
-        cls,
         *,
         client: Optional[BaseFunctionClient] = None,
         function_name: Optional[str] = None,

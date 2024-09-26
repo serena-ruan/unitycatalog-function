@@ -1,27 +1,27 @@
-import pytest
 import json
 import logging
 import os
 import uuid
-from typing import NamedTuple
 from contextlib import contextmanager
+from typing import NamedTuple
 from unittest import mock
-from pydantic import ValidationError
 
-
-from unitycatalog.ai.client import (
-    set_uc_function_client,
-    FunctionExecutionResult,
-)
-from unitycatalog.ai.databricks import DatabricksFunctionClient
-from unitycatalog.ai.utils.function_processing_utils import get_tool_name
-from ucai_llamaindex.toolkit import UCFunctionToolkit
+import pytest
 from databricks.sdk.service.catalog import (
     FunctionInfo,
     FunctionParameterInfo,
     FunctionParameterInfos,
 )
+from pydantic import ValidationError
+from unitycatalog.ai.client import (
+    FunctionExecutionResult,
+    set_uc_function_client,
+)
+from unitycatalog.ai.databricks import DatabricksFunctionClient
+from unitycatalog.ai.utils.function_processing_utils import get_tool_name
+
 from tests.helper_functions import requires_databricks
+from ucai_llamaindex.toolkit import UCFunctionToolkit
 
 CATALOG = "ml"
 SCHEMA = "ben_uc_test"

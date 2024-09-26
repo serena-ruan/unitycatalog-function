@@ -38,7 +38,7 @@ packages = ["src/ucai_llamaindex"]
 line-length = 100
 target-version = "py39"
 
-[too.ruff.lint]
+[tool.ruff.lint]
 select = [
   # isort
   "I",
