@@ -1,9 +1,4 @@
 import json
-import logging
-import os
-import uuid
-from contextlib import contextmanager
-from typing import NamedTuple
 from unittest import mock
 
 import pytest
@@ -14,74 +9,19 @@ from databricks.sdk.service.catalog import (
 )
 from unitycatalog.ai.client import (
     FunctionExecutionResult,
-    set_uc_function_client,
 )
-from unitycatalog.ai.databricks import DatabricksFunctionClient
 from unitycatalog.ai.utils.function_processing_utils import get_tool_name
+from unitycatalog.test_utils import (
+    CATALOG,
+    SCHEMA,
+    USE_SERVERLESS,
+    create_function_and_cleanup,
+    get_client,
+    requires_databricks,
+    set_default_client,
+)
 
-from tests.helper_functions import requires_databricks
 from ucai_langchain.toolkit import UCFunctionToolkit
-
-USE_SERVERLESS = "USE_SERVERLESS"
-
-USE_SERVERLESS = "USE_SERVERLESS"
-
-
-def get_client() -> DatabricksFunctionClient:
-    with mock.patch(
-        "unitycatalog.ai.databricks.get_default_databricks_workspace_client",
-        return_value=mock.Mock(),
-    ):
-        if os.environ.get(USE_SERVERLESS, "false").lower() == "true":
-            return DatabricksFunctionClient()
-        else:
-            return DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
-
-
-CATALOG = "ml"
-SCHEMA = "serena_uc_test"
-_logger = logging.getLogger(__name__)
-
-
-class FunctionObj(NamedTuple):
-    full_function_name: str
-    comment: str
-
-
-@contextmanager
-def create_function_and_cleanup(client: DatabricksFunctionClient):
-    func_name = f"{CATALOG}.{SCHEMA}.test_{uuid.uuid4().hex[:4]}"
-    comment = "Executes Python code and returns its stdout."
-    sql_body = f"""CREATE OR REPLACE FUNCTION {func_name}(code STRING COMMENT 'Python code to execute. Remember to print the final result to stdout.')
-RETURNS STRING
-LANGUAGE PYTHON
-COMMENT '{comment}'
-AS $$
-    import sys
-    from io import StringIO
-    stdout = StringIO()
-    sys.stdout = stdout
-    exec(code)
-    return stdout.getvalue()
-$$
-"""
-    try:
-        client.create_function(sql_function_body=sql_body)
-        yield FunctionObj(full_function_name=func_name, comment=comment)
-    finally:
-        try:
-            client.client.functions.delete(func_name)
-        except Exception as e:
-            _logger.warning(f"Fail to delete function: {e}")
-
-
-@contextmanager
-def set_default_client(client: DatabricksFunctionClient):
-    try:
-        set_uc_function_client(client)
-        yield
-    finally:
-        set_uc_function_client(None)
 
 
 @requires_databricks
@@ -135,7 +75,7 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
     with set_default_client(client), create_function_and_cleanup(client) as func_obj:
-        toolkit = LangchainToolkit(function_names=[func_obj.full_function_name], client=client)
+        toolkit = UCFunctionToolkit(function_names=[func_obj.full_function_name], client=client)
         tools = toolkit.tools
         assert len(tools) == 1
         tool = tools[0]
@@ -146,7 +86,7 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
         result = json.loads(tool.func(code="print(1)"))["value"]
         assert result == "1\n"
 
-        toolkit = LangchainToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"], client=client)
+        toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"], client=client)
         assert len(toolkit.tools) >= 1
         assert get_tool_name(func_obj.full_function_name) in [t.name for t in toolkit.tools]
 
