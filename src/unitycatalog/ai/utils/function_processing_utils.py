@@ -135,6 +135,7 @@ def process_function_names(
     tools_dict: Dict[str, Any],
     client,
     uc_function_to_tool_func: Callable,
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     Process function names and update the tools dictionary.
@@ -149,6 +150,8 @@ def process_function_names(
         uc_function_to_tool_func (Callable): A function that converts a UC function
             into a tool instance. This function should accept kwargs only to make
             sure the parameters are passed correctly.
+        **kwargs: Additional keyword arguments to pass to the conversion function for
+            tool framework-specific configuration.
     Returns:
         Dict[str, Any]: The updated tools dictionary.
     """
@@ -170,13 +173,13 @@ def process_function_names(
                     for f in functions:
                         if f.full_name not in tools_dict:
                             tools_dict[f.full_name] = uc_function_to_tool_func(
-                                function_info=f, client=client
+                                function_info=f, client=client, **kwargs
                             )
                     token = functions.token
                     if token is None:
                         break
             else:
-                tools_dict[name] = uc_function_to_tool_func(function_name=name, client=client)
+                tools_dict[name] = uc_function_to_tool_func(function_name=name, client=client, **kwargs)
     return tools_dict
 
 
