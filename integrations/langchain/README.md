@@ -1,4 +1,4 @@
-## 🦜🔗 Using Unity Catalog AI with Langchain
+# 🦜🔗 Using Unity Catalog AI with Langchain
 
 Integrate Unity Catalog AI package with Langchain to allow seamless usage of UC functions as tools in agents application.
 
@@ -19,11 +19,12 @@ pip install git+ssh://git@github.com/serena-ruan/unitycatalog-ai.git#subdirector
 To use Databricks-managed Unity Catalog with this package, follow the [instructions](https://docs.databricks.com/en/dev-tools/cli/authentication.html#authentication-for-the-databricks-cli) to authenticate to your workspace and ensure that your access token has workspace-level privilege for managing UC functions.
 
 #### Client setup
+
 Initialize a client for managing UC functions in a Databricks workspace, and set it as the global client.
 
 ```python
-from unitycatalog.ai.client import set_uc_function_client
-from unitycatalog.ai.databricks import DatabricksFunctionClient
+from ucai.core.client import set_uc_function_client
+from ucai.core.databricks import DatabricksFunctionClient
 
 client = DatabricksFunctionClient(
     warehouse_id="..." # replace with the warehouse_id
@@ -35,6 +36,7 @@ set_uc_function_client(client)
 ```
 
 #### Create a function in UC
+
 Create a python UDF in Unity Catalog with the client
 
 ```python
@@ -64,6 +66,7 @@ client.create_function(sql_function_body=sql_body)
 Now the function is created and stored in the corresponding catalog and schema.
 
 #### Create an instance of a LangChain compatible tool
+
 [Langchain tools](https://python.langchain.com/v0.2/docs/concepts/#tools) are utilities designed to be called by a model, and UCFunctionToolkit provides the ability to use UC functions as tools that are recognized natively by LangChain.
 
 ```python
@@ -81,6 +84,7 @@ python_exec_tool.invoke({"code": "print(1)"})
 ```
 
 #### Use the tools in Langchain Agent
+
 Now we create an agent and use the tools.
 
 ```python

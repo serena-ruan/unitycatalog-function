@@ -23,8 +23,8 @@ To use Databricks-managed Unity Catalog with this package, follow the [instructi
 Initialize a client for managing UC functions in a Databricks workspace, and set it as the global client.
 
 ```python
-from unitycatalog.ai.client import set_uc_function_client
-from unitycatalog.ai.databricks import DatabricksFunctionClient
+from ucai.core.client import set_uc_function_client
+from ucai.core.databricks import DatabricksFunctionClient
 
 client = DatabricksFunctionClient(
     warehouse_id="..." # replace with the warehouse_id
@@ -148,7 +148,7 @@ openai.chat.completions.create(
 To use different clients during toolkit creation stage, you could pass the client directly to UCFunctionToolkit:
 
 ```python
-from unitycatalog_ai_openai.toolkit import UCFunctionToolkit
+from ucai_openai.toolkit import UCFunctionToolkit
 
 toolkit = UCFunctionToolkit(function_names=[...], client=your_own_client)
 ```

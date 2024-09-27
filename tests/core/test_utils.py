@@ -10,16 +10,16 @@ from databricks.sdk.service.catalog import (
 )
 from pydantic import BaseModel
 
-from unitycatalog.ai.utils.function_processing_utils import (
+from ucai.core.utils.function_processing_utils import (
     generate_function_input_params_schema,
     uc_type_json_to_pydantic_type,
     validate_full_function_name,
 )
-from unitycatalog.ai.utils.type_utils import (
+from ucai.core.utils.type_utils import (
     column_type_to_python_type,
     convert_timedelta_to_interval_str,
 )
-from unitycatalog.ai.utils.validation_utils import is_base64_encoded
+from ucai.core.utils.validation_utils import is_base64_encoded
 
 
 def test_full_function_name():

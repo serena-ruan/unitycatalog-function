@@ -10,15 +10,15 @@ from databricks.sdk.service.catalog import (
     FunctionParameterInfos,
 )
 from openai.types.chat.chat_completion_message_tool_call import Function
-from unitycatalog.ai.client import set_uc_function_client
-from unitycatalog.ai.utils.function_processing_utils import get_tool_name
-from unitycatalog.test_utils.client_utils import (
+from ucai.core.client import set_uc_function_client
+from ucai.core.utils.function_processing_utils import get_tool_name
+from ucai.test_utils.client_utils import (
     USE_SERVERLESS,
     get_client,
     requires_databricks,
     set_default_client,
 )
-from unitycatalog.test_utils.function_utils import (
+from ucai.test_utils.function_utils import (
     create_function_and_cleanup,
     random_func_name,
 )

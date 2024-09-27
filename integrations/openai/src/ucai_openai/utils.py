@@ -2,9 +2,9 @@ import json
 from typing import Any, Dict, List, Optional
 
 from openai.types.chat.chat_completion import ChatCompletion
-from unitycatalog.ai.client import BaseFunctionClient
-from unitycatalog.ai.utils.client_utils import validate_or_set_default_client
-from unitycatalog.ai.utils.function_processing_utils import construct_original_function_name
+from ucai.core.client import BaseFunctionClient
+from ucai.core.utils.client_utils import validate_or_set_default_client
+from ucai.core.utils.function_processing_utils import construct_original_function_name
 
 
 # TODO: support async

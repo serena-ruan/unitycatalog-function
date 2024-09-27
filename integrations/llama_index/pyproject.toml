@@ -10,14 +10,14 @@ license = { text="MIT" }
 requires-python = ">=3.9"
 dependencies = [
     "llama-index>=0.11.0",
-    "unitycatalog-ai",
+    "ucai-core",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest",
   "typing_extensions",
-  # temporarily needed until unitycatalog-ai[databricks] is released
+  # temporarily needed until ucai-core[databricks] is released
   "databricks-sdk>=0.32.0",
   "databricks-connect"
 ]

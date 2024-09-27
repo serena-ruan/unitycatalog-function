@@ -1,6 +1,6 @@
 from typing import Optional
 
-from unitycatalog.ai.client import BaseFunctionClient, get_uc_function_client
+from ucai.core.client import BaseFunctionClient, get_uc_function_client
 
 
 def validate_or_set_default_client(client: Optional[BaseFunctionClient] = None):
@@ -22,6 +22,6 @@ def validate_or_set_default_client(client: Optional[BaseFunctionClient] = None):
         raise ValueError(
             "No client provided, either set the client when creating a "
             "toolkit or set the default client using "
-            "unitycatalog.ai.client.set_uc_function_client(client)."
+            "ucai.core.client.set_uc_function_client(client)."
         )
     return client

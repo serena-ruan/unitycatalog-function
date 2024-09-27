@@ -1,8 +1,8 @@
-## 🦙 Using Unity Catalog AI with LlamaIndex
+# 🦙 Using Unity Catalog AI with LlamaIndex
 
 You can use functions defined within Unity Catalog (UC) directly as tools within [LlamaIndex](https://docs.llamaindex.ai/en/stable/) with this package.
 
-## Installation 
+## Installation
 
 ### From PyPI
 
@@ -30,8 +30,8 @@ To use Databricks-managed UC with this package, follow the [instructions here](h
 Initialize a client for managing UC functions in a Databricks workspace, and set it as the global client.
 
 ```python
-from unitycatalog.ai.client import set_uc_function_client
-from unitycatalog.ai.databricks import DatabricksFunctionClient
+from ucai.core.client import set_uc_function_client
+from ucai.core.databricks import DatabricksFunctionClient
 
 client = DatabricksFunctionClient(
     warehouse_id="..." # replace with the warehouse_id
@@ -71,11 +71,11 @@ $$
 client.create_function(sql_function_body=sql_body)
 ```
 
-Now that the function exists within the Catalog and Schema that we defined, we can interface with it from llamaindex using the unitycatalog_ai_llamaindex package.
+Now that the function exists within the Catalog and Schema that we defined, we can interface with it from llamaindex using the ucai_llamaindex package.
 
 #### Create an instance of a LlamaIndex compatible tool
 
-[LlamaIndex Tools](https://docs.llamaindex.ai/en/stable/module_guides/deploying/agents/tools/) are callable external functions that GenAI applications (called by 
+[LlamaIndex Tools](https://docs.llamaindex.ai/en/stable/module_guides/deploying/agents/tools/) are callable external functions that GenAI applications (called by
 an LLM), which are exposed with a UC interface through the use of the ucai_llamaindex package via the `UCFunctionToolkit` API.
 
 ```python
@@ -98,8 +98,8 @@ my_tool.fn(**{"code": "print(1)"})
 
 #### Utilize our function as a tool within a ReActAgent in LlamaIndex
 
-With our interface to our UC function defined as a LlamaIndex tool collection, we can directly use it within a LlamaIndex agent application. 
-Below, we are going to create a simple `ReActAgent` and verify that our agent properly calls our UC function. 
+With our interface to our UC function defined as a LlamaIndex tool collection, we can directly use it within a LlamaIndex agent application.
+Below, we are going to create a simple `ReActAgent` and verify that our agent properly calls our UC function.
 
 ```python
 from llama_index.llms.openai import OpenAI

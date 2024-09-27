@@ -3,7 +3,7 @@ import uuid
 from contextlib import contextmanager
 from typing import Generator, NamedTuple, Optional
 
-from unitycatalog.ai.databricks import DatabricksFunctionClient
+from ucai.core.databricks import DatabricksFunctionClient
 
 CATALOG = "ml"
 SCHEMA = "serena_uc_test"

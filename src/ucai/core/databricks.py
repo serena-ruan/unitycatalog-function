@@ -12,14 +12,14 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
 from typing_extensions import override
 
-from unitycatalog.ai.client import BaseFunctionClient, FunctionExecutionResult
-from unitycatalog.ai.paged_list import PagedList
-from unitycatalog.ai.utils.type_utils import (
+from ucai.core.client import BaseFunctionClient, FunctionExecutionResult
+from ucai.core.paged_list import PagedList
+from ucai.core.utils.type_utils import (
     column_type_to_python_type,
     convert_timedelta_to_interval_str,
     is_time_type,
 )
-from unitycatalog.ai.utils.validation_utils import validate_full_function_name, validate_param
+from ucai.core.utils.validation_utils import validate_full_function_name, validate_param
 
 if TYPE_CHECKING:
     from databricks.sdk import WorkspaceClient
