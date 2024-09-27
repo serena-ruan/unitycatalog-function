@@ -138,6 +138,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
         """
         self.client = client or get_default_databricks_workspace_client()
         self.warehouse_id = warehouse_id
+        self._validate_warehouse_type()
         self.profile = profile
         # TODO: add CI to run this in Databricks notebook
         self.spark = _try_get_spark_session_in_dbr()
@@ -157,6 +158,17 @@ class DatabricksFunctionClient(BaseFunctionClient):
     def stop_spark_session(self):
         if self.spark is not None and not self.spark.is_stopped:
             self.spark.stop()
+
+    def _validate_warehouse_type(self):
+        if (
+            self.warehouse_id
+            and not self.client.warehouses.get(self.warehouse_id).enable_serverless_compute
+        ):
+            raise ValueError(
+                f"Warehouse {self.warehouse_id} does not support serverless compute. "
+                "Please use a serverless warehouse following the instructions here: "
+                "https://docs.databricks.com/en/admin/sql/serverless.html#enable-serverless-sql-warehouses."
+            )
 
     @override
     def create_function(
