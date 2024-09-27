@@ -1,9 +1,4 @@
 import json
-import logging
-import os
-import uuid
-from contextlib import contextmanager
-from typing import NamedTuple
 from unittest import mock
 
 import pytest
@@ -15,80 +10,22 @@ from databricks.sdk.service.catalog import (
 from pydantic import ValidationError
 from ucai.core.client import (
     FunctionExecutionResult,
-    set_uc_function_client,
 )
-from ucai.core.databricks import DatabricksFunctionClient
 from ucai.core.utils.function_processing_utils import get_tool_name
+from ucai.test_utils.client_utils import (
+    USE_SERVERLESS,
+    client,  # noqa: F401
+    get_client,
+    set_default_client,
+)
+from ucai.test_utils.function_utils import (
+    CATALOG,
+    SCHEMA,
+    create_function_and_cleanup,
+)
 
 from tests.helper_functions import requires_databricks
 from ucai_llamaindex.toolkit import UCFunctionToolkit
-
-CATALOG = "ml"
-SCHEMA = "ben_uc_test"
-USE_SERVERLESS = "USE_SERVERLESS"
-
-_logger = logging.getLogger(__name__)
-
-
-def get_client() -> DatabricksFunctionClient:
-    with mock.patch(
-        "ucai.core.databricks.get_default_databricks_workspace_client",
-        return_value=mock.Mock(),
-    ):
-        if os.environ.get(USE_SERVERLESS, "false").lower() == "true":
-            return DatabricksFunctionClient()
-        else:
-            return DatabricksFunctionClient(warehouse_id="warehouse_id")
-
-
-class FunctionObj(NamedTuple):
-    full_function_name: str
-    comment: str
-
-
-@contextmanager
-def create_function_and_cleanup(client: DatabricksFunctionClient):
-    func_name = f"{CATALOG}.{SCHEMA}.test_{uuid.uuid4().hex[:4]}"
-    comment = "Executes Python code and returns its stdout."
-    sql_body = f"""CREATE OR REPLACE FUNCTION {func_name}(code STRING COMMENT 'Python code to execute. Remember to print the final result to stdout.')
-RETURNS STRING
-LANGUAGE PYTHON
-COMMENT '{comment}'
-AS $$
-    import sys
-    from io import StringIO
-    stdout = StringIO()
-    sys.stdout = stdout
-    exec(code)
-    return stdout.getvalue()
-$$
-"""
-    try:
-        client.create_function(sql_function_body=sql_body)
-        yield FunctionObj(full_function_name=func_name, comment=comment)
-    finally:
-        try:
-            client.client.functions.delete(func_name)
-        except Exception as e:
-            _logger.warning(f"Failed to delete function: {e}")
-
-
-@pytest.fixture
-def client():
-    with mock.patch(
-        "ucai.core.databricks.get_default_databricks_workspace_client",
-        return_value=mock.Mock(),
-    ):
-        yield DatabricksFunctionClient(warehouse_id="warehouse_id")
-
-
-@contextmanager
-def set_default_client(client: DatabricksFunctionClient):
-    try:
-        set_uc_function_client(client)
-        yield
-    finally:
-        set_uc_function_client(None)
 
 
 @requires_databricks
@@ -103,7 +40,7 @@ def test_toolkit_e2e(use_serverless, monkeypatch):
         tools = toolkit.tools
         assert len(tools) == 1
         tool = tools[0]
-        assert tool.metadata.name == func_obj.full_function_name
+        assert tool.metadata.name == get_tool_name(func_obj.full_function_name)
         assert tool.metadata.return_direct
         assert tool.metadata.description == func_obj.comment
         assert tool.client_config == client.to_dict()
@@ -114,7 +51,9 @@ def test_toolkit_e2e(use_serverless, monkeypatch):
 
         toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
         assert len(toolkit.tools) >= 1
-        assert func_obj.full_function_name in [t.metadata.name for t in toolkit.tools]
+        assert get_tool_name(func_obj.full_function_name) in [
+            t.metadata.name for t in toolkit.tools
+        ]
 
 
 @requires_databricks
@@ -129,9 +68,9 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
         tools = toolkit.tools
         assert len(tools) == 1
         tool = tools[0]
-        assert tool.name == func_obj.full_function_name.replace(".", "__")
+        assert tool.metadata.name == get_tool_name(func_obj.full_function_name)
         assert tool.metadata.return_direct
-        assert tool.description == func_obj.comment
+        assert tool.metadata.description == func_obj.comment
         assert tool.client_config == client.to_dict()
         input_args = {"code": "print(1)"}
         result = json.loads(tool.fn(**input_args))["value"]
@@ -139,7 +78,9 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
 
         toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"], client=client)
         assert len(toolkit.tools) >= 1
-        assert get_tool_name(func_obj.full_function_name) in [t.name for t in toolkit.tools]
+        assert get_tool_name(func_obj.full_function_name) in [
+            t.metadata.name for t in toolkit.tools
+        ]
 
 
 @requires_databricks
@@ -151,7 +92,11 @@ def test_multiple_toolkits(use_serverless, monkeypatch):
         toolkit1 = UCFunctionToolkit(function_names=[func_obj.full_function_name])
         toolkit2 = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
         tool1 = toolkit1.tools[0]
-        tool2 = [t for t in toolkit2.tools if t.metadata.name == func_obj.full_function_name][0]
+        tool2 = [
+            t
+            for t in toolkit2.tools
+            if t.metadata.name == get_tool_name(func_obj.full_function_name)
+        ][0]
         input_args = {"code": "print(1)"}
         result1 = json.loads(tool1.fn(**input_args))["value"]
         result2 = json.loads(tool2.fn(**input_args))["value"]

@@ -8,6 +8,7 @@ from ucai.core.client import set_uc_function_client
 from ucai.core.databricks import DatabricksFunctionClient
 
 USE_SERVERLESS = "USE_SERVERLESS"
+WAREHOUSE_ID = "warehouse_id"
 
 
 def requires_databricks(test_func):
@@ -24,7 +25,7 @@ def client() -> DatabricksFunctionClient:
         "ucai.core.databricks.get_default_databricks_workspace_client",
         return_value=mock.Mock(),
     ):
-        return DatabricksFunctionClient(warehouse_id="warehouse_id")
+        return DatabricksFunctionClient(warehouse_id=WAREHOUSE_ID)
 
 
 @pytest.fixture
@@ -40,7 +41,7 @@ def get_client() -> DatabricksFunctionClient:
         if os.environ.get(USE_SERVERLESS, "false").lower() == "true":
             return DatabricksFunctionClient()
         else:
-            return DatabricksFunctionClient(warehouse_id="warehouse_id")
+            return DatabricksFunctionClient(warehouse_id=WAREHOUSE_ID)
 
 
 @contextmanager
