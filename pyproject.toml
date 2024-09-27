@@ -23,6 +23,9 @@ build-backend = "hatchling.build"
 include = [
   "src/*"
 ]
+exclude = [
+  "src/unitycatalog/test_utils/*"
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/unitycatalog"]
