@@ -55,6 +55,8 @@ select = [
   "TCH004",
   # import rules
   "TID251",
+  # undefined-local-with-import-star
+  "F403",
 ]
 
 [tool.ruff.format]
