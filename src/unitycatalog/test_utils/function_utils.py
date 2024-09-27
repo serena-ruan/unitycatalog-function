@@ -1,7 +1,7 @@
 import logging
 import uuid
 from contextlib import contextmanager
-from typing import NamedTuple, Optional
+from typing import Generator, NamedTuple, Optional
 
 from unitycatalog.ai.databricks import DatabricksFunctionClient
 
@@ -41,8 +41,7 @@ def create_function_and_cleanup(
     *,
     func_name: Optional[str] = None,
     sql_body: Optional[str] = None,
-    return_func_name: bool = False,
-):
+) -> Generator[FunctionObj, None, None]:
     func_name = func_name or random_func_name()
     comment = "Executes Python code and returns its stdout."
     sql_body = (
@@ -63,10 +62,7 @@ $$
     )
     try:
         client.create_function(sql_function_body=sql_body)
-        if return_func_name:
-            yield func_name
-        else:
-            yield FunctionObj(full_function_name=func_name, comment=comment)
+        yield FunctionObj(full_function_name=func_name, comment=comment)
     finally:
         try:
             client.client.functions.delete(func_name)

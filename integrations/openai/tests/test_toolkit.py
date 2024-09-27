@@ -34,8 +34,9 @@ def test_tool_calling(use_serverless, monkeypatch):
     client = get_client()
     with (
         set_default_client(client),
-        create_function_and_cleanup(client, return_func_name=True) as func_name,
+        create_function_and_cleanup(client, return_func_name=True) as func_obj,
     ):
+        func_name = func_obj.full_function_name
         toolkit = UCFunctionToolkit(function_names=[func_name])
         tools = toolkit.tools
         assert len(tools) == 1
@@ -98,8 +99,9 @@ def test_tool_calling_with_multiple_choices(use_serverless, monkeypatch):
     client = get_client()
     with (
         set_default_client(client),
-        create_function_and_cleanup(client, return_func_name=True) as func_name,
+        create_function_and_cleanup(client, return_func_name=True) as func_obj,
     ):
+        func_name = func_obj.full_function_name
         toolkit = UCFunctionToolkit(function_names=[func_name])
         tools = toolkit.tools
         assert len(tools) == 1
