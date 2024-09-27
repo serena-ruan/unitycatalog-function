@@ -26,6 +26,7 @@ from ucai.core.databricks import (
     DatabricksFunctionClient,
     extract_function_name,
 )
+from ucai.core.utils.databricks_utils import NoOpClient
 from ucai.test_utils.client_utils import (
     client,  # noqa: F401
     requires_databricks,
@@ -811,3 +812,16 @@ $$
         time_total2 = time.time() - time2
         # 30s - 10s = 20s, the time difference should be around 20s
         assert abs(abs(time_total2 - time_total1) - 20) < 5
+
+
+def test_default_noop_client_if_databricks_sdk_missing():
+    with mock.patch("databricks.sdk.WorkspaceClient.__init__", side_effect=RuntimeError):
+        client = DatabricksFunctionClient(warehouse_id="fake_warehouse_id")
+        assert isinstance(client.client, NoOpClient)
+        # create_function is not tested because it doesn't rely on the client
+        function_info = client.get_function("catalog.schema.test")
+        assert function_info is not None
+        assert all(x is None for x in function_info.__dict__.values())
+        assert client.list_functions(catalog="catalog", schema="schema") == []
+        with mock.patch.object(client, "validate_input_params"):
+            assert client.execute_function("catalog.schema.test").value == "null"

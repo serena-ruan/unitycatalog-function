@@ -14,6 +14,7 @@ from typing_extensions import override
 
 from ucai.core.client import BaseFunctionClient, FunctionExecutionResult
 from ucai.core.paged_list import PagedList
+from ucai.core.utils.databricks_utils import get_default_databricks_workspace_client
 from ucai.core.utils.type_utils import (
     column_type_to_python_type,
     convert_timedelta_to_interval_str,
@@ -52,18 +53,6 @@ f"`pip install databricks-connect=={DATABRICKS_CONNECT_SUPPORTED_VERSION}` "
 "to use serverless compute in Databricks. Please note this requires python>=3.10."
 
 _logger = logging.getLogger(__name__)
-
-
-def get_default_databricks_workspace_client() -> "WorkspaceClient":
-    try:
-        from databricks.sdk import WorkspaceClient
-    except ImportError as e:
-        raise ImportError(
-            "Could not import databricks-sdk python package. "
-            "If you want to use databricks backend then "
-            "please install it with `pip install databricks-sdk`."
-        ) from e
-    return WorkspaceClient()
 
 
 def _validate_databricks_connect_available() -> bool:
