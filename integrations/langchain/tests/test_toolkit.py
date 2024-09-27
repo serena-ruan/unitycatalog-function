@@ -11,14 +11,16 @@ from unitycatalog.ai.client import (
     FunctionExecutionResult,
 )
 from unitycatalog.ai.utils.function_processing_utils import get_tool_name
-from unitycatalog.test_utils import (
-    CATALOG,
-    SCHEMA,
+from unitycatalog.test_utils.client_utils import (
     USE_SERVERLESS,
-    create_function_and_cleanup,
     get_client,
     requires_databricks,
     set_default_client,
+)
+from unitycatalog.test_utils.function_utils import (
+    CATALOG,
+    SCHEMA,
+    create_function_and_cleanup,
 )
 
 from ucai_langchain.toolkit import UCFunctionToolkit

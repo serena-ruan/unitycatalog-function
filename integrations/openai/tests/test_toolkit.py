@@ -12,13 +12,15 @@ from databricks.sdk.service.catalog import (
 from openai.types.chat.chat_completion_message_tool_call import Function
 from unitycatalog.ai.client import set_uc_function_client
 from unitycatalog.ai.utils.function_processing_utils import get_tool_name
-from unitycatalog.test_utils import (
+from unitycatalog.test_utils.client_utils import (
     USE_SERVERLESS,
-    create_function_and_cleanup,
     get_client,
-    random_func_name,
     requires_databricks,
     set_default_client,
+)
+from unitycatalog.test_utils.function_utils import (
+    create_function_and_cleanup,
+    random_func_name,
 )
 
 from tests.helper_functions import mock_chat_completion_response, mock_choice

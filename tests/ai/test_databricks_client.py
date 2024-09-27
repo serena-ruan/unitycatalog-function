@@ -26,14 +26,16 @@ from unitycatalog.ai.databricks import (
     DatabricksFunctionClient,
     extract_function_name,
 )
-from unitycatalog.test_utils import (
-    CATALOG,
-    SCHEMA,
+from unitycatalog.test_utils.client_utils import (
     client,  # noqa: F401
-    generate_func_name_and_cleanup,
-    random_func_name,
     requires_databricks,
     serverless_client,  # noqa: F401
+)
+from unitycatalog.test_utils.function_utils import (
+    CATALOG,
+    SCHEMA,
+    generate_func_name_and_cleanup,
+    random_func_name,
 )
 
 

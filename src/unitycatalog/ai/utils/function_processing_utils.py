@@ -179,7 +179,9 @@ def process_function_names(
                     if token is None:
                         break
             else:
-                tools_dict[name] = uc_function_to_tool_func(function_name=name, client=client, **kwargs)
+                tools_dict[name] = uc_function_to_tool_func(
+                    function_name=name, client=client, **kwargs
+                )
     return tools_dict
 
 
