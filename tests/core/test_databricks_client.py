@@ -18,7 +18,7 @@ from databricks.sdk.service.catalog import (
     FunctionParameterInfos,
 )
 
-from unitycatalog.ai.databricks import (
+from ucai.core.databricks import (
     DEFAULT_EXECUTE_FUNCTION_ARGS,
     EXECUTE_FUNCTION_ARG_NAME,
     UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT,
@@ -26,12 +26,12 @@ from unitycatalog.ai.databricks import (
     DatabricksFunctionClient,
     extract_function_name,
 )
-from unitycatalog.test_utils.client_utils import (
+from ucai.test_utils.client_utils import (
     client,  # noqa: F401
     requires_databricks,
     serverless_client,  # noqa: F401
 )
-from unitycatalog.test_utils.function_utils import (
+from ucai.test_utils.function_utils import (
     CATALOG,
     SCHEMA,
     generate_func_name_and_cleanup,

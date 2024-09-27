@@ -3,8 +3,8 @@ from unittest import mock
 
 import pytest
 from openai.types.chat.chat_completion_message_tool_call import Function
-from unitycatalog.ai.client import FunctionExecutionResult
-from unitycatalog.ai.databricks import DatabricksFunctionClient
+from ucai.core.client import FunctionExecutionResult
+from ucai.core.databricks import DatabricksFunctionClient
 
 from tests.helper_functions import mock_chat_completion_response, mock_choice
 from ucai_openai.utils import generate_tool_call_messages
@@ -13,7 +13,7 @@ from ucai_openai.utils import generate_tool_call_messages
 @pytest.fixture
 def client() -> DatabricksFunctionClient:
     with mock.patch(
-        "unitycatalog.ai.databricks.get_default_databricks_workspace_client",
+        "ucai.core.databricks.get_default_databricks_workspace_client",
         return_value=mock.Mock(),
     ):
         return DatabricksFunctionClient()

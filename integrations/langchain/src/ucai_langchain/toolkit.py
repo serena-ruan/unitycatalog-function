@@ -3,9 +3,9 @@ from typing import Any, Dict, List, Optional
 
 from langchain_core.pydantic_v1 import BaseModel, Field, root_validator
 from langchain_core.tools import StructuredTool
-from unitycatalog.ai.client import BaseFunctionClient
-from unitycatalog.ai.utils.client_utils import validate_or_set_default_client
-from unitycatalog.ai.utils.function_processing_utils import (
+from ucai.core.client import BaseFunctionClient
+from ucai.core.utils.client_utils import validate_or_set_default_client
+from ucai.core.utils.function_processing_utils import (
     generate_function_input_params_schema,
     get_tool_name,
     process_function_names,

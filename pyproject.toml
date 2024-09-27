@@ -1,9 +1,10 @@
 [project]
-name = "unitycatalog-ai"
+name = "ucai-core"
 version = "0.0.1"
 description = "Official Python library for Unity Catalog AI support"
 authors = [
-    { name="Serena Ruan", email="serena.ruan@databricks.com" }
+    { name="Serena Ruan", email="serena.ruan@databricks.com" },
+    { name="Ben Wilson", email="benjamin.wilson@databricks.com" }
 ]
 readme = "README.md"
 requires-python = ">=3.9"
@@ -24,11 +25,11 @@ include = [
   "src/*"
 ]
 exclude = [
-  "src/unitycatalog/test_utils/*"
+  "src/ucai/test_utils/*"
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/unitycatalog"]
+packages = ["src/ucai"]
 
 [project.optional-dependencies]
 databricks = [

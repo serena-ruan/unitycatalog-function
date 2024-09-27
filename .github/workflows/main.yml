@@ -50,11 +50,11 @@ jobs:
       - name: Run tests with pydantic v1
         run: |
           pip install 'pydantic<2'
-          pytest tests/ai/
+          pytest tests/
       - name: Run tests with pydantic v2
         run: |
           pip install 'pydantic>=2'
-          pytest tests/ai/
+          pytest tests/
 
   langchain_test:
     runs-on: ubuntu-latest
@@ -71,7 +71,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          # for installing unitycatalog-ai
           pip install .
           pip install integrations/langchain[dev]
       - name: Run tests
@@ -93,7 +92,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          # for installing unitycatalog-ai
           pip install .
           pip install integrations/openai[dev]
       - name: Run tests
@@ -115,7 +113,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          # for installing unitycatalog-ai
           pip install .
           pip install integrations/llama_index[dev]
       - name: Run tests

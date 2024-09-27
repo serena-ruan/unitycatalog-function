@@ -2,7 +2,7 @@ import base64
 import datetime
 from typing import Any, NamedTuple
 
-from unitycatalog.ai.utils.type_utils import is_time_type
+from ucai.core.utils.type_utils import is_time_type
 
 
 class FullFunctionName(NamedTuple):

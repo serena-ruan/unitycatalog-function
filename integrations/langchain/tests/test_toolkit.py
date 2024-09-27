@@ -7,17 +7,17 @@ from databricks.sdk.service.catalog import (
     FunctionParameterInfo,
     FunctionParameterInfos,
 )
-from unitycatalog.ai.client import (
+from ucai.core.client import (
     FunctionExecutionResult,
 )
-from unitycatalog.ai.utils.function_processing_utils import get_tool_name
-from unitycatalog.test_utils.client_utils import (
+from ucai.core.utils.function_processing_utils import get_tool_name
+from ucai.test_utils.client_utils import (
     USE_SERVERLESS,
     get_client,
     requires_databricks,
     set_default_client,
 )
-from unitycatalog.test_utils.function_utils import (
+from ucai.test_utils.function_utils import (
     CATALOG,
     SCHEMA,
     create_function_and_cleanup,
@@ -146,11 +146,11 @@ def test_uc_function_to_langchain_tool():
     mock_function_info = generate_function_info()
     with (
         mock.patch(
-            "unitycatalog.ai.databricks.DatabricksFunctionClient.get_function",
+            "ucai.core.databricks.DatabricksFunctionClient.get_function",
             return_value=mock_function_info,
         ),
         mock.patch(
-            "unitycatalog.ai.databricks.DatabricksFunctionClient.execute_function",
+            "ucai.core.databricks.DatabricksFunctionClient.execute_function",
             return_value=FunctionExecutionResult(format="SCALAR", value="some_string"),
         ),
     ):

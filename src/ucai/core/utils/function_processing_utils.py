@@ -7,14 +7,14 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field, create_model
 
-from unitycatalog.ai.utils.config import JSON_SCHEMA_TYPE, UC_LIST_FUNCTIONS_MAX_RESULTS
-from unitycatalog.ai.utils.pydantic_utils import (
+from ucai.core.utils.config import JSON_SCHEMA_TYPE, UC_LIST_FUNCTIONS_MAX_RESULTS
+from ucai.core.utils.pydantic_utils import (
     PydanticField,
     PydanticFunctionInputParams,
     PydanticType,
 )
-from unitycatalog.ai.utils.type_utils import UC_TYPE_JSON_MAPPING
-from unitycatalog.ai.utils.validation_utils import validate_full_function_name
+from ucai.core.utils.type_utils import UC_TYPE_JSON_MAPPING
+from ucai.core.utils.validation_utils import validate_full_function_name
 
 _logger = logging.getLogger(__name__)
 

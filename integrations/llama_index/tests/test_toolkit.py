@@ -13,12 +13,12 @@ from databricks.sdk.service.catalog import (
     FunctionParameterInfos,
 )
 from pydantic import ValidationError
-from unitycatalog.ai.client import (
+from ucai.core.client import (
     FunctionExecutionResult,
     set_uc_function_client,
 )
-from unitycatalog.ai.databricks import DatabricksFunctionClient
-from unitycatalog.ai.utils.function_processing_utils import get_tool_name
+from ucai.core.databricks import DatabricksFunctionClient
+from ucai.core.utils.function_processing_utils import get_tool_name
 
 from tests.helper_functions import requires_databricks
 from ucai_llamaindex.toolkit import UCFunctionToolkit
@@ -32,7 +32,7 @@ _logger = logging.getLogger(__name__)
 
 def get_client() -> DatabricksFunctionClient:
     with mock.patch(
-        "unitycatalog.ai.databricks.get_default_databricks_workspace_client",
+        "ucai.core.databricks.get_default_databricks_workspace_client",
         return_value=mock.Mock(),
     ):
         if os.environ.get(USE_SERVERLESS, "false").lower() == "true":
@@ -76,7 +76,7 @@ $$
 @pytest.fixture
 def client():
     with mock.patch(
-        "unitycatalog.ai.databricks.get_default_databricks_workspace_client",
+        "ucai.core.databricks.get_default_databricks_workspace_client",
         return_value=mock.Mock(),
     ):
         yield DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
@@ -202,11 +202,11 @@ def test_uc_function_to_llama_tool(client):
     mock_function_info = generate_function_info()
     with (
         mock.patch(
-            "unitycatalog.ai.databricks.DatabricksFunctionClient.get_function",
+            "ucai.core.databricks.DatabricksFunctionClient.get_function",
             return_value=mock_function_info,
         ),
         mock.patch(
-            "unitycatalog.ai.databricks.DatabricksFunctionClient.execute_function",
+            "ucai.core.databricks.DatabricksFunctionClient.execute_function",
             return_value=FunctionExecutionResult(format="SCALAR", value="some_string"),
         ),
     ):
@@ -226,7 +226,7 @@ def test_toolkit_with_invalid_function_input(client):
 
     with (
         mock.patch(
-            "unitycatalog.ai.utils.client_utils.validate_or_set_default_client", return_value=client
+            "ucai.core.utils.client_utils.validate_or_set_default_client", return_value=client
         ),
         mock.patch.object(client, "get_function", return_value=mock_function_info),
     ):
