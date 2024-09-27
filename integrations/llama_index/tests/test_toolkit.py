@@ -38,7 +38,7 @@ def get_client() -> DatabricksFunctionClient:
         if os.environ.get(USE_SERVERLESS, "false").lower() == "true":
             return DatabricksFunctionClient()
         else:
-            return DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
+            return DatabricksFunctionClient(warehouse_id="warehouse_id")
 
 
 class FunctionObj(NamedTuple):
@@ -79,7 +79,7 @@ def client():
         "ucai.core.databricks.get_default_databricks_workspace_client",
         return_value=mock.Mock(),
     ):
-        yield DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
+        yield DatabricksFunctionClient(warehouse_id="warehouse_id")
 
 
 @contextmanager
