@@ -1,9 +1,5 @@
 import json
-import logging
-import os
-import uuid
-from contextlib import contextmanager
-from typing import Dict, List, Optional
+from typing import Dict, List
 from unittest import mock
 
 import openai
@@ -15,74 +11,20 @@ from databricks.sdk.service.catalog import (
 )
 from openai.types.chat.chat_completion_message_tool_call import Function
 from unitycatalog.ai.client import set_uc_function_client
-from unitycatalog.ai.databricks import DatabricksFunctionClient
 from unitycatalog.ai.utils.function_processing_utils import get_tool_name
+from unitycatalog.test_utils.client_utils import (
+    USE_SERVERLESS,
+    get_client,
+    requires_databricks,
+    set_default_client,
+)
+from unitycatalog.test_utils.function_utils import (
+    create_function_and_cleanup,
+    random_func_name,
+)
 
-from tests.helper_functions import mock_chat_completion_response, mock_choice, requires_databricks
+from tests.helper_functions import mock_chat_completion_response, mock_choice
 from ucai_openai.toolkit import UCFunctionToolkit
-
-CATALOG = "ml"
-SCHEMA = "serena_uc_test"
-USE_SERVERLESS = "USE_SERVERLESS"
-
-_logger = logging.getLogger(__name__)
-
-
-def get_client() -> DatabricksFunctionClient:
-    with mock.patch(
-        "unitycatalog.ai.databricks.get_default_databricks_workspace_client",
-        return_value=mock.Mock(),
-    ):
-        if os.environ.get(USE_SERVERLESS, "false").lower() == "true":
-            return DatabricksFunctionClient()
-        else:
-            return DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
-
-
-def random_func_name():
-    return f"{CATALOG}.{SCHEMA}.test_{uuid.uuid4().hex[:4]}"
-
-
-@contextmanager
-def create_function_and_cleanup(
-    client: DatabricksFunctionClient,
-    func_name: Optional[str] = None,
-    sql_body: Optional[str] = None,
-):
-    func_name = func_name or random_func_name()
-    sql_body = (
-        sql_body
-        or f"""CREATE OR REPLACE FUNCTION {func_name}(code STRING COMMENT 'Python code to execute. Remember to print the final result to stdout.')
-RETURNS STRING
-LANGUAGE PYTHON
-COMMENT 'Executes Python code and returns its stdout.'
-AS $$
-    import sys
-    from io import StringIO
-    stdout = StringIO()
-    sys.stdout = stdout
-    exec(code)
-    return stdout.getvalue()
-$$
-"""
-    )
-    try:
-        client.create_function(sql_function_body=sql_body)
-        yield func_name
-    finally:
-        try:
-            client.client.functions.delete(func_name)
-        except Exception as e:
-            _logger.warning(f"Fail to delete function: {e}")
-
-
-@contextmanager
-def set_default_client(client: DatabricksFunctionClient):
-    try:
-        set_uc_function_client(client)
-        yield
-    finally:
-        set_uc_function_client(None)
 
 
 @requires_databricks
@@ -90,7 +32,11 @@ def set_default_client(client: DatabricksFunctionClient):
 def test_tool_calling(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
-    with set_default_client(client), create_function_and_cleanup(client) as func_name:
+    with (
+        set_default_client(client),
+        create_function_and_cleanup(client, return_func_name=True) as func_obj,
+    ):
+        func_name = func_obj.full_function_name
         toolkit = UCFunctionToolkit(function_names=[func_name])
         tools = toolkit.tools
         assert len(tools) == 1
@@ -151,7 +97,11 @@ def test_tool_calling(use_serverless, monkeypatch):
 def test_tool_calling_with_multiple_choices(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
-    with set_default_client(client), create_function_and_cleanup(client) as func_name:
+    with (
+        set_default_client(client),
+        create_function_and_cleanup(client, return_func_name=True) as func_obj,
+    ):
+        func_name = func_obj.full_function_name
         toolkit = UCFunctionToolkit(function_names=[func_name])
         tools = toolkit.tools
         assert len(tools) == 1

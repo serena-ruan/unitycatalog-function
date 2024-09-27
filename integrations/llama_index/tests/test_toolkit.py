@@ -40,6 +40,7 @@ def get_client() -> DatabricksFunctionClient:
         else:
             return DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
 
+
 class FunctionObj(NamedTuple):
     full_function_name: str
     comment: str
@@ -96,7 +97,9 @@ def test_toolkit_e2e(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
     with set_default_client(client), create_function_and_cleanup(client) as func_obj:
-        toolkit = UCFunctionToolkit(function_names=[func_obj.full_function_name], return_direct=True)
+        toolkit = UCFunctionToolkit(
+            function_names=[func_obj.full_function_name], return_direct=True
+        )
         tools = toolkit.tools
         assert len(tools) == 1
         tool = tools[0]
@@ -113,13 +116,16 @@ def test_toolkit_e2e(use_serverless, monkeypatch):
         assert len(toolkit.tools) >= 1
         assert func_obj.full_function_name in [t.metadata.name for t in toolkit.tools]
 
+
 @requires_databricks
 @pytest.mark.parametrize("use_serverless", [True, False])
 def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
     with set_default_client(client), create_function_and_cleanup(client) as func_obj:
-        toolkit = UCFunctionToolkit(function_names=[func_obj.full_function_name], client=client, return_direct=True)
+        toolkit = UCFunctionToolkit(
+            function_names=[func_obj.full_function_name], client=client, return_direct=True
+        )
         tools = toolkit.tools
         assert len(tools) == 1
         tool = tools[0]
@@ -134,6 +140,7 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
         toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"], client=client)
         assert len(toolkit.tools) >= 1
         assert get_tool_name(func_obj.full_function_name) in [t.name for t in toolkit.tools]
+
 
 @requires_databricks
 @pytest.mark.parametrize("use_serverless", [True, False])
@@ -157,11 +164,13 @@ def test_toolkit_creation_errors():
 
     with pytest.raises(ValidationError, match=r"Input should be an instance of BaseFunctionClient"):
         UCFunctionToolkit(function_names=[], client="client")
-    
+
 
 def test_toolkit_function_argument_errors(client):
-   
-    with pytest.raises(ValidationError, match=r".*Cannot create tool instances without function_names being provided.*"):
+    with pytest.raises(
+        ValidationError,
+        match=r".*Cannot create tool instances without function_names being provided.*",
+    ):
         UCFunctionToolkit(client=client)
 
 
@@ -210,19 +219,22 @@ def test_uc_function_to_llama_tool(client):
         result = json.loads(tool.fn(x="some_string"))["value"]
         assert result == "some_string"
 
+
 def test_toolkit_with_invalid_function_input(client):
     """Test toolkit with invalid input parameters for function conversion."""
     mock_function_info = generate_function_info()
-    
-    with mock.patch("unitycatalog.ai.utils.client_utils.validate_or_set_default_client", return_value=client), \
-         mock.patch.object(client, "get_function", return_value=mock_function_info):
-        
+
+    with (
+        mock.patch(
+            "unitycatalog.ai.utils.client_utils.validate_or_set_default_client", return_value=client
+        ),
+        mock.patch.object(client, "get_function", return_value=mock_function_info),
+    ):
         # Test with invalid input params that are not matching expected schema
         invalid_inputs = {"unexpected_key": "value"}
         tool = UCFunctionToolkit.uc_function_to_llama_tool(
             function_name="catalog.schema.test", client=client, return_direct=True
         )
-        
+
         with pytest.raises(ValueError, match="Extra parameters provided that are not defined"):
             tool.fn(**invalid_inputs)
-

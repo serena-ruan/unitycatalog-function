@@ -1,9 +1,6 @@
 import base64
 import datetime
-import logging
 import time
-import uuid
-from contextlib import contextmanager
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, NamedTuple
 from unittest import mock
@@ -21,7 +18,6 @@ from databricks.sdk.service.catalog import (
     FunctionParameterInfos,
 )
 
-from tests.helper_functions import requires_databricks
 from unitycatalog.ai.databricks import (
     DEFAULT_EXECUTE_FUNCTION_ARGS,
     EXECUTE_FUNCTION_ARG_NAME,
@@ -30,55 +26,27 @@ from unitycatalog.ai.databricks import (
     DatabricksFunctionClient,
     extract_function_name,
 )
-
-CATALOG = "ml"
-SCHEMA = "serena_uc_test"
-
-_logger = logging.getLogger(__name__)
-
-
-# TODO: CI -- two test cases
-# 1. python 3.10 with databricks-connect 15.1.0, no cluster_id, use serverless
-# 2. python 3.9 with databricks-sdk, with cluster_id
-@pytest.fixture
-def client() -> DatabricksFunctionClient:
-    with mock.patch(
-        "unitycatalog.ai.databricks.get_default_databricks_workspace_client",
-        return_value=mock.Mock(),
-    ):
-        return DatabricksFunctionClient(warehouse_id="warehouse_id", cluster_id="cluster_id")
-
-
-@pytest.fixture
-def serverless_client() -> DatabricksFunctionClient:
-    return DatabricksFunctionClient()
-
-
-def random_func_name():
-    return f"test_{uuid.uuid4().hex[:4]}"
-
-
-@contextmanager
-def generate_func_name_and_cleanup(client: DatabricksFunctionClient):
-    func_name = random_func_name()
-    try:
-        yield func_name
-    finally:
-        try:
-            client.client.functions.delete(f"{CATALOG}.{SCHEMA}.{func_name}")
-        except Exception as e:
-            _logger.warning(f"Fail to delete function: {e}")
+from unitycatalog.test_utils.client_utils import (
+    client,  # noqa: F401
+    requires_databricks,
+    serverless_client,  # noqa: F401
+)
+from unitycatalog.test_utils.function_utils import (
+    CATALOG,
+    SCHEMA,
+    generate_func_name_and_cleanup,
+    random_func_name,
+)
 
 
 class FunctionInputOutput(NamedTuple):
     sql_body: str
-    func_name: str
     inputs: List[Dict[str, Any]]
     output: str
 
 
 def function_with_struct_input(func_name: str) -> FunctionInputOutput:
-    sql_body = f"""CREATE OR REPLACE FUNCTION {CATALOG}.{SCHEMA}.{func_name}(s STRUCT<a: SHORT NOT NULL COMMENT 'short field', b: MAP<STRING, FLOAT>, c: INT NOT NULL>)
+    sql_body = f"""CREATE OR REPLACE FUNCTION {func_name}(s STRUCT<a: SHORT NOT NULL COMMENT 'short field', b: MAP<STRING, FLOAT>, c: INT NOT NULL>)
 RETURNS STRING
 LANGUAGE PYTHON
 AS $$
@@ -91,14 +59,13 @@ $$
 """
     return FunctionInputOutput(
         sql_body=sql_body,
-        func_name=f"{CATALOG}.{SCHEMA}.{func_name}",
         inputs=[{"s": {"a": 1, "b": {"2": 2, "3.0": 3.0}, "c": 4}}],
         output="1;2=>2.0,3.0=>3.0;4",
     )
 
 
 def function_with_array_input(func_name: str) -> FunctionInputOutput:
-    sql_body = f"""CREATE FUNCTION {CATALOG}.{SCHEMA}.{func_name}(s ARRAY<BYTE>)
+    sql_body = f"""CREATE FUNCTION {func_name}(s ARRAY<BYTE>)
 RETURNS STRING
 LANGUAGE PYTHON
 AS $$
@@ -107,14 +74,13 @@ $$
 """
     return FunctionInputOutput(
         sql_body=sql_body,
-        func_name=f"{CATALOG}.{SCHEMA}.{func_name}",
         inputs=[{"s": [1, 2, 3]}],
         output="1,2,3",
     )
 
 
 def function_with_string_input(func_name: str) -> FunctionInputOutput:
-    sql_body = f"""CREATE FUNCTION {CATALOG}.{SCHEMA}.{func_name}(s STRING)
+    sql_body = f"""CREATE FUNCTION {func_name}(s STRING)
 RETURNS STRING
 LANGUAGE PYTHON
 AS $$
@@ -123,14 +89,13 @@ $$
 """
     return FunctionInputOutput(
         sql_body=sql_body,
-        func_name=f"{CATALOG}.{SCHEMA}.{func_name}",
         inputs=[{"s": "abc"}],
         output="abc",
     )
 
 
 def function_with_binary_input(func_name: str) -> FunctionInputOutput:
-    sql_body = f"""CREATE FUNCTION {CATALOG}.{SCHEMA}.{func_name}(s BINARY)
+    sql_body = f"""CREATE FUNCTION {func_name}(s BINARY)
 RETURNS STRING
 LANGUAGE PYTHON
 AS $$
@@ -139,7 +104,6 @@ $$
 """
     return FunctionInputOutput(
         sql_body=sql_body,
-        func_name=f"{CATALOG}.{SCHEMA}.{func_name}",
         inputs=[
             {"s": base64.b64encode(b"Hello").decode("utf-8")},
             {"s": "SGVsbG8="},
@@ -150,7 +114,7 @@ $$
 
 
 def function_with_interval_input(func_name: str) -> FunctionInputOutput:
-    sql_body = f"""CREATE FUNCTION {CATALOG}.{SCHEMA}.{func_name}(s INTERVAL DAY TO SECOND)
+    sql_body = f"""CREATE FUNCTION {func_name}(s INTERVAL DAY TO SECOND)
 RETURNS STRING
 LANGUAGE PYTHON
 AS $$
@@ -161,7 +125,6 @@ $$
 """
     return FunctionInputOutput(
         sql_body=sql_body,
-        func_name=f"{CATALOG}.{SCHEMA}.{func_name}",
         inputs=[
             {"s": "INTERVAL '0 0:16:40.123456' DAY TO SECOND"},
             {"s": datetime.timedelta(days=0, hours=0, minutes=16, seconds=40, microseconds=123456)},
@@ -172,7 +135,7 @@ $$
 
 
 def function_with_timestamp_input(func_name: str) -> FunctionInputOutput:
-    sql_body = f"""CREATE FUNCTION {CATALOG}.{SCHEMA}.{func_name}(x TIMESTAMP, y TIMESTAMP_NTZ)
+    sql_body = f"""CREATE FUNCTION {func_name}(x TIMESTAMP, y TIMESTAMP_NTZ)
 RETURNS STRING
 LANGUAGE PYTHON
 AS $$
@@ -181,7 +144,6 @@ $$
 """
     return FunctionInputOutput(
         sql_body=sql_body,
-        func_name=f"{CATALOG}.{SCHEMA}.{func_name}",
         inputs=[
             {
                 "x": datetime.datetime(2024, 8, 19, 11, 2, 3),
@@ -194,7 +156,7 @@ $$
 
 
 def function_with_date_input(func_name: str) -> FunctionInputOutput:
-    sql_body = f"""CREATE FUNCTION {CATALOG}.{SCHEMA}.{func_name}(s DATE)
+    sql_body = f"""CREATE FUNCTION {func_name}(s DATE)
 RETURNS STRING
 LANGUAGE PYTHON
 AS $$
@@ -203,14 +165,13 @@ $$
 """
     return FunctionInputOutput(
         sql_body=sql_body,
-        func_name=f"{CATALOG}.{SCHEMA}.{func_name}",
         inputs=[{"s": datetime.date(2024, 8, 19)}, {"s": "2024-08-19"}],
         output="2024-08-19",
     )
 
 
 def function_with_map_input(func_name: str) -> FunctionInputOutput:
-    sql_body = f"""CREATE FUNCTION {CATALOG}.{SCHEMA}.{func_name}(s MAP<STRING, ARRAY<INT>>)
+    sql_body = f"""CREATE FUNCTION {func_name}(s MAP<STRING, ARRAY<INT>>)
 RETURNS STRING
 LANGUAGE PYTHON
 AS $$
@@ -222,14 +183,13 @@ $$
 """
     return FunctionInputOutput(
         sql_body=sql_body,
-        func_name=f"{CATALOG}.{SCHEMA}.{func_name}",
         inputs=[{"s": {"a": [1, 2, 3], "b": [4, 5, 6]}}],
         output="a => [1, 2, 3],b => [4, 5, 6]",
     )
 
 
 def function_with_decimal_input(func_name: str) -> FunctionInputOutput:
-    sql_body = f"""CREATE FUNCTION {CATALOG}.{SCHEMA}.{func_name}(s DECIMAL(10, 2))
+    sql_body = f"""CREATE FUNCTION {func_name}(s DECIMAL(10, 2))
 RETURNS STRING
 LANGUAGE PYTHON
 AS $$
@@ -238,23 +198,22 @@ $$
 """
     return FunctionInputOutput(
         sql_body=sql_body,
-        func_name=f"{CATALOG}.{SCHEMA}.{func_name}",
         inputs=[{"s": 123.45}, {"s": Decimal("123.45")}],
         output="123.45",
     )
 
 
 def function_with_table_output(func_name: str) -> FunctionInputOutput:
-    sql_body = f"""CREATE FUNCTION {CATALOG}.{SCHEMA}.{func_name}(start DATE, end DATE)
+    function_name = func_name.split(".")[-1]
+    sql_body = f"""CREATE FUNCTION {func_name}(start DATE, end DATE)
 RETURNS TABLE(day_of_week STRING, day DATE)
 RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
-            FROM (SELECT sequence({func_name}.start, {func_name}.end)) AS T(days)
+            FROM (SELECT sequence({function_name}.start, {function_name}.end)) AS T(days)
                 LATERAL VIEW explode(days) AS day
             WHERE extract(DAYOFWEEK_ISO FROM day) BETWEEN 1 AND 5;
 """
     return FunctionInputOutput(
         sql_body=sql_body,
-        func_name=f"{CATALOG}.{SCHEMA}.{func_name}",
         inputs=[{"start": datetime.date(2024, 1, 1), "end": "2024-01-07"}],
         output="day_of_week,day\n1,2024-01-01\n2,2024-01-02\n3,2024-01-03\n4,2024-01-04\n5,2024-01-05\n",
     )
@@ -283,7 +242,7 @@ def test_create_and_execute_function(
         function_sample = create_function(func_name)
         client.create_function(sql_function_body=function_sample.sql_body)
         for input_example in function_sample.inputs:
-            result = client.execute_function(function_sample.func_name, input_example)
+            result = client.execute_function(func_name, input_example)
             assert result.value == function_sample.output
 
 
@@ -311,7 +270,7 @@ def test_create_and_execute_function_using_serverless(
         function_sample = create_function(func_name)
         serverless_client.create_function(sql_function_body=function_sample.sql_body)
         for input_example in function_sample.inputs:
-            result = serverless_client.execute_function(function_sample.func_name, input_example)
+            result = serverless_client.execute_function(func_name, input_example)
             assert result.value == function_sample.output
 
 
@@ -324,9 +283,7 @@ def test_execute_function_using_serverless_row_limit(
     with generate_func_name_and_cleanup(serverless_client) as func_name:
         function_sample = function_with_table_output(func_name)
         serverless_client.create_function(sql_function_body=function_sample.sql_body)
-        result = serverless_client.execute_function(
-            function_sample.func_name, function_sample.inputs[0]
-        )
+        result = serverless_client.execute_function(func_name, function_sample.inputs[0])
         assert result.value == "day_of_week,day\n1,2024-01-01\n"
         assert result.truncated is True
 
@@ -335,8 +292,7 @@ def test_execute_function_using_serverless_row_limit(
 def test_execute_function_with_timeout(client: DatabricksFunctionClient, monkeypatch):
     monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "5")
     with generate_func_name_and_cleanup(client) as func_name:
-        full_func_name = f"{CATALOG}.{SCHEMA}.{func_name}"
-        sql_body = f"""CREATE FUNCTION {full_func_name}()
+        sql_body = f"""CREATE FUNCTION {func_name}()
 RETURNS STRING
 LANGUAGE PYTHON
 AS $$
@@ -347,19 +303,18 @@ AS $$
 $$
 """
         client.create_function(sql_function_body=sql_body)
-        result = client.execute_function(full_func_name)
+        result = client.execute_function(func_name)
         assert result.error.startswith("Statement execution is still pending after 5 seconds")
 
         monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "100")
-        result = client.execute_function(full_func_name)
+        result = client.execute_function(func_name)
         assert result.value == "10"
 
 
 @requires_databricks
 def test_get_function(client: DatabricksFunctionClient):
     with generate_func_name_and_cleanup(client) as func_name:
-        full_func_name = f"{CATALOG}.{SCHEMA}.{func_name}"
-        sql_body = f"""CREATE FUNCTION {full_func_name}(s STRING)
+        sql_body = f"""CREATE FUNCTION {func_name}(s STRING)
 RETURNS STRING
 LANGUAGE PYTHON
 AS $$
@@ -367,7 +322,7 @@ AS $$
     $$
 """
         create_func_info = client.create_function(sql_function_body=sql_body)
-        function_info = client.get_function(full_func_name)
+        function_info = client.get_function(func_name)
         assert create_func_info == function_info
 
 
@@ -382,7 +337,7 @@ def test_get_function_errors(client: DatabricksFunctionClient):
         client.get_function("catalog.schema.some_func*")
 
 
-def simple_function(func_name: str) -> FunctionInputOutput:
+def simple_function(func_name: str) -> str:
     return f"""CREATE FUNCTION {func_name}(s STRING)
 RETURNS STRING
 LANGUAGE PYTHON
@@ -398,19 +353,16 @@ def test_list_functions(client: DatabricksFunctionClient):
     existing_function_num = len(function_infos)  # type: ignore
 
     with generate_func_name_and_cleanup(client) as func_name:
-        full_func_name = f"{CATALOG}.{SCHEMA}.{func_name}"
-        create_func_info = client.create_function(sql_function_body=simple_function(full_func_name))
-        function_info = client.get_function(full_func_name)
+        create_func_info = client.create_function(sql_function_body=simple_function(func_name))
+        function_info = client.get_function(func_name)
         assert create_func_info == function_info
 
         function_infos = client.list_functions(catalog=CATALOG, schema=SCHEMA)
         assert isinstance(function_infos, list) and len(function_infos) == existing_function_num + 1
-        assert len([f for f in function_infos if f.full_name == full_func_name]) == 1
+        assert len([f for f in function_infos if f.full_name == func_name]) == 1
 
         with generate_func_name_and_cleanup(client) as func_name_2:
-            client.create_function(
-                sql_function_body=simple_function(f"{CATALOG}.{SCHEMA}.{func_name_2}")
-            )
+            client.create_function(sql_function_body=simple_function(func_name_2))
             function_infos = client.list_functions(catalog=CATALOG, schema=SCHEMA, max_results=1)
             assert len(function_infos) == 1
             function_info = function_infos[0]
@@ -696,7 +648,7 @@ def test_validate_param_type_errors(client: DatabricksFunctionClient):
 
 @pytest.fixture
 def good_function_info():
-    func_name = random_func_name()
+    func_name = random_func_name().split(".")[-1]
     return FunctionInfo(
         catalog_name=CATALOG,
         schema_name=SCHEMA,
@@ -730,7 +682,7 @@ def good_function_info():
 
 @pytest.fixture
 def bad_function_info():
-    func_name = random_func_name()
+    func_name = random_func_name().split(".")[-1]
     return FunctionInfo(
         catalog_name=CATALOG,
         schema_name=SCHEMA,
@@ -838,8 +790,7 @@ def test_extra_params_when_executing_function_errors(
 def test_extra_params_when_executing_function_e2e(client: DatabricksFunctionClient, monkeypatch):
     monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "5")
     with generate_func_name_and_cleanup(client) as func_name:
-        full_func_name = f"{CATALOG}.{SCHEMA}.{func_name}"
-        sql_body = f"""CREATE FUNCTION {full_func_name}()
+        sql_body = f"""CREATE FUNCTION {func_name}()
 RETURNS STRING
 LANGUAGE PYTHON
 AS $$
@@ -852,13 +803,11 @@ $$
         client.create_function(sql_function_body=sql_body)
         time1 = time.time()
         # default wait_timeout is 30s
-        client.execute_function(full_func_name)
+        client.execute_function(func_name)
         time_total1 = time.time() - time1
 
         time2 = time.time()
-        client.execute_function(
-            full_func_name, {EXECUTE_FUNCTION_ARG_NAME: {"wait_timeout": "10s"}}
-        )
+        client.execute_function(func_name, {EXECUTE_FUNCTION_ARG_NAME: {"wait_timeout": "10s"}})
         time_total2 = time.time() - time2
         # 30s - 10s = 20s, the time difference should be around 20s
         assert abs(abs(time_total2 - time_total1) - 20) < 5

@@ -61,9 +61,8 @@ class UCFunctionToolkit(BaseModel):
         )
         return values
 
-    @classmethod
+    @staticmethod
     def uc_function_to_langchain_tool(
-        cls,
         *,
         client: Optional[BaseFunctionClient] = None,
         function_name: Optional[str] = None,
