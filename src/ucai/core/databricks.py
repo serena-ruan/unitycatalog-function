@@ -421,7 +421,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
                 retry_cnt += 1
             if response.status and job_pending(response.status.state):
                 return FunctionExecutionResult(
-                    error=f"Statement execution is still pending after {wait_time} "
+                    error=f"Statement execution is still {response.status.state.value.lower()} after {wait_time} "
                     "seconds. Please increase the wait_timeout argument for executing "
                     f"the function or increase {UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT} environment "
                     f"variable for increasing retrying time, default value is {DEFAULT_UC_AI_CLIENT_EXECUTION_TIMEOUT} seconds."

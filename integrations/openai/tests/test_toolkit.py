@@ -49,13 +49,12 @@ def test_tool_calling(use_serverless, monkeypatch):
             {"role": "user", "content": "What is the result of 2**10?"},
         ]
 
-        converted_func_name = get_tool_name(func_name)
         with mock.patch(
             "openai.chat.completions.create",
             return_value=mock_chat_completion_response(
                 function=Function(
                     arguments='{"code":"result = 2**10\\nprint(result)"}',
-                    name=converted_func_name,
+                    name=func_obj.tool_name,
                 ),
             ),
         ):
@@ -67,7 +66,7 @@ def test_tool_calling(use_serverless, monkeypatch):
             tool_calls = response.choices[0].message.tool_calls
             assert len(tool_calls) == 1
             tool_call = tool_calls[0]
-            assert tool_call.function.name == converted_func_name
+            assert tool_call.function.name == func_obj.tool_name
             arguments = json.loads(tool_call.function.arguments)
             assert isinstance(arguments.get("code"), str)
 
@@ -114,10 +113,9 @@ def test_tool_calling_with_multiple_choices(use_serverless, monkeypatch):
             {"role": "user", "content": "What is the result of 2**10?"},
         ]
 
-        converted_func_name = get_tool_name(func_name)
         function = Function(
             arguments='{"code":"result = 2**10\\nprint(result)"}',
-            name=converted_func_name,
+            name=func_obj.tool_name,
         )
         with mock.patch(
             "openai.chat.completions.create",
@@ -138,7 +136,7 @@ def test_tool_calling_with_multiple_choices(use_serverless, monkeypatch):
             assert len(tool_calls) == 1
 
             tool_call = tool_calls[0]
-            assert tool_call.function.name == converted_func_name
+            assert tool_call.function.name == func_obj.tool_name
             arguments = json.loads(tool_call.function.arguments)
             assert isinstance(arguments.get("code"), str)
 
@@ -181,7 +179,7 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
     client = get_client()
     with (
         set_default_client(client),
-        create_function_and_cleanup(client, func_name=func_name, sql_body=sql_body),
+        create_function_and_cleanup(client, func_name=func_name, sql_body=sql_body) as func_obj,
     ):
         toolkit = UCFunctionToolkit(function_names=[func_name], client=client)
         tools = toolkit.tools
@@ -196,13 +194,12 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
             {"role": "user", "content": "What are the weekdays between 2024-01-01 and 2024-01-07?"},
         ]
 
-        converted_func_name = get_tool_name(func_name)
         with mock.patch(
             "openai.chat.completions.create",
             return_value=mock_chat_completion_response(
                 function=Function(
                     arguments='{"start":"2024-01-01","end":"2024-01-07"}',
-                    name=converted_func_name,
+                    name=func_obj.tool_name,
                 ),
             ),
         ):
@@ -214,7 +211,7 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
             tool_calls = response.choices[0].message.tool_calls
             assert len(tool_calls) == 1
             tool_call = tool_calls[0]
-            assert tool_call.function.name == converted_func_name
+            assert tool_call.function.name == func_obj.tool_name
             arguments = json.loads(tool_call.function.arguments)
             assert isinstance(arguments.get("start"), str)
             assert isinstance(arguments.get("end"), str)
@@ -264,8 +261,10 @@ $$
 """
     client = get_client()
     with (
-        create_function_and_cleanup(client, func_name=cap_func, sql_body=sql_body1),
-        create_function_and_cleanup(client, func_name=upper_func, sql_body=sql_body2),
+        create_function_and_cleanup(client, func_name=cap_func, sql_body=sql_body1) as cap_func_obj,
+        create_function_and_cleanup(
+            client, func_name=upper_func, sql_body=sql_body2
+        ) as upper_func_obj,
     ):
         toolkit = UCFunctionToolkit(function_names=[cap_func, upper_func], client=client)
         tools = toolkit.tools
@@ -284,7 +283,7 @@ $$
             return_value=mock_chat_completion_response(
                 function=Function(
                     arguments='{"s":"abc"}',
-                    name=get_tool_name(cap_func),
+                    name=cap_func_obj.tool_name,
                 ),
             ),
         ):
@@ -297,7 +296,7 @@ $$
         tool_calls = response.choices[0].message.tool_calls
         assert len(tool_calls) == 1
         tool_call = tool_calls[0]
-        assert tool_call.function.name == get_tool_name(cap_func)
+        assert tool_call.function.name == cap_func_obj.tool_name
         arguments = json.loads(tool_call.function.arguments)
         result = client.execute_function(cap_func, arguments)
         assert result.value == "Abc"
@@ -314,7 +313,7 @@ $$
             return_value=mock_chat_completion_response(
                 function=Function(
                     arguments='{"s":"abc"}',
-                    name=get_tool_name(upper_func),
+                    name=upper_func_obj.tool_name,
                 ),
             ),
         ):
@@ -322,12 +321,12 @@ $$
                 model="gpt-4o-mini",
                 messages=messages,
                 tools=tools,
-                tool_choice={"type": "function", "function": {"name": get_tool_name(upper_func)}},
+                tool_choice={"type": "function", "function": {"name": upper_func_obj.tool_name}},
             )
         tool_calls = response.choices[0].message.tool_calls
         assert len(tool_calls) == 1
         tool_call = tool_calls[0]
-        assert tool_call.function.name == get_tool_name(upper_func)
+        assert tool_call.function.name == upper_func_obj.tool_name
         arguments = json.loads(tool_call.function.arguments)
         result = client.execute_function(upper_func, arguments)
         assert result.value == "ABC"

@@ -11,7 +11,6 @@ from pydantic import ValidationError
 from ucai.core.client import (
     FunctionExecutionResult,
 )
-from ucai.core.utils.function_processing_utils import get_tool_name
 from ucai.test_utils.client_utils import (
     USE_SERVERLESS,
     client,  # noqa: F401
@@ -40,7 +39,7 @@ def test_toolkit_e2e(use_serverless, monkeypatch):
         tools = toolkit.tools
         assert len(tools) == 1
         tool = tools[0]
-        assert tool.metadata.name == get_tool_name(func_obj.full_function_name)
+        assert tool.metadata.name == func_obj.tool_name
         assert tool.metadata.return_direct
         assert tool.metadata.description == func_obj.comment
         assert tool.client_config == client.to_dict()
@@ -51,9 +50,7 @@ def test_toolkit_e2e(use_serverless, monkeypatch):
 
         toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
         assert len(toolkit.tools) >= 1
-        assert get_tool_name(func_obj.full_function_name) in [
-            t.metadata.name for t in toolkit.tools
-        ]
+        assert func_obj.tool_name in [t.metadata.name for t in toolkit.tools]
 
 
 @requires_databricks
@@ -68,7 +65,7 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
         tools = toolkit.tools
         assert len(tools) == 1
         tool = tools[0]
-        assert tool.metadata.name == get_tool_name(func_obj.full_function_name)
+        assert tool.metadata.name == func_obj.tool_name
         assert tool.metadata.return_direct
         assert tool.metadata.description == func_obj.comment
         assert tool.client_config == client.to_dict()
@@ -78,9 +75,7 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
 
         toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"], client=client)
         assert len(toolkit.tools) >= 1
-        assert get_tool_name(func_obj.full_function_name) in [
-            t.metadata.name for t in toolkit.tools
-        ]
+        assert func_obj.tool_name in [t.metadata.name for t in toolkit.tools]
 
 
 @requires_databricks
@@ -92,11 +87,7 @@ def test_multiple_toolkits(use_serverless, monkeypatch):
         toolkit1 = UCFunctionToolkit(function_names=[func_obj.full_function_name])
         toolkit2 = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
         tool1 = toolkit1.tools[0]
-        tool2 = [
-            t
-            for t in toolkit2.tools
-            if t.metadata.name == get_tool_name(func_obj.full_function_name)
-        ][0]
+        tool2 = [t for t in toolkit2.tools if t.metadata.name == func_obj.tool_name][0]
         input_args = {"code": "print(1)"}
         result1 = json.loads(tool1.fn(**input_args))["value"]
         result2 = json.loads(tool2.fn(**input_args))["value"]
