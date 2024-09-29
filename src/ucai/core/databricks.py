@@ -14,7 +14,7 @@ from typing_extensions import override
 
 from ucai.core.client import BaseFunctionClient, FunctionExecutionResult
 from ucai.core.paged_list import PagedList
-from ucai.core.utils.databricks_utils import get_default_databricks_workspace_client
+from ucai.core.utils.databricks_utils import NoOpClient, get_default_databricks_workspace_client
 from ucai.core.utils.type_utils import (
     column_type_to_python_type,
     convert_timedelta_to_interval_str,
@@ -496,6 +496,8 @@ class DatabricksFunctionClient(BaseFunctionClient):
 
     @override
     def validate_input_params(self, input_params: Any, parameters: Dict[str, Any]) -> None:
+        if isinstance(self.client, NoOpClient):
+            return
         super().validate_input_params(
             input_params, {k: v for k, v in parameters.items() if k != EXECUTE_FUNCTION_ARG_NAME}
         )
