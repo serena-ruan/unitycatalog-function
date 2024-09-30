@@ -41,6 +41,15 @@ DEFAULT_UC_AI_CLIENT_EXECUTION_TIMEOUT = "120"
 UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT = "UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT"
 DEFAULT_UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT = "100"
 
+DATABRICKS_CONNECT_SUPPORTED_VERSION = "15.1.0"
+DATABRICKS_CONNECT_IMPORT_ERROR_MESSAGE = "Could not import databricks-connect python package. "
+"TO interact with UC functions using serverless compute, install the package with "
+f"`pip install databricks-connect=={DATABRICKS_CONNECT_SUPPORTED_VERSION}`. "
+"Please note this requires python>=3.10."
+DATABRICKS_CONNECT_VERSION_NOT_SUPPORTED_ERROR_MESSAGE = "Serverless is not supported by the "
+"current databricks-connect version, install with "
+f"`pip install databricks-connect=={DATABRICKS_CONNECT_SUPPORTED_VERSION}` "
+"to use serverless compute in Databricks. Please note this requires python>=3.10."
 
 _logger = logging.getLogger(__name__)
 
@@ -57,13 +66,14 @@ def get_default_databricks_workspace_client() -> "WorkspaceClient":
     return WorkspaceClient()
 
 
-def _databricks_connect_available() -> bool:
+def _validate_databricks_connect_available() -> bool:
     try:
         from databricks.connect.session import DatabricksSession  # noqa: F401
 
-        return True
-    except ImportError:
-        return False
+        if not hasattr(DatabricksSession.builder, "serverless"):
+            raise Exception(DATABRICKS_CONNECT_VERSION_NOT_SUPPORTED_ERROR_MESSAGE)
+    except ImportError as e:
+        raise Exception(DATABRICKS_CONNECT_IMPORT_ERROR_MESSAGE) from e
 
 
 def _try_get_spark_session_in_dbr() -> Any:
@@ -113,7 +123,6 @@ class DatabricksFunctionClient(BaseFunctionClient):
         client: Optional["WorkspaceClient"] = None,
         *,
         warehouse_id: Optional[str] = None,
-        cluster_id: Optional[str] = None,
         profile: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
@@ -125,14 +134,11 @@ class DatabricksFunctionClient(BaseFunctionClient):
                 is generated based on the configuration. Defaults to None.
             warehouse_id: The warehouse id to use for executing functions. This field is
                 not needed if serverless is enabled in the databricks workspace. Defaults to None.
-            cluster_id: The cluster id to use for creating functions. Make sure the cluster
-                is up and running before creating the function. This field is not needed if databricks-connect
-                is installed and serverless is enabled in databricks workspace. Defaults to None.
             profile: The configuration profile to use for databricks connect. Defaults to None.
         """
         self.client = client or get_default_databricks_workspace_client()
         self.warehouse_id = warehouse_id
-        self.cluster_id = cluster_id
+        self._validate_warehouse_type()
         self.profile = profile
         # TODO: add CI to run this in Databricks notebook
         self.spark = _try_get_spark_session_in_dbr()
@@ -140,41 +146,29 @@ class DatabricksFunctionClient(BaseFunctionClient):
 
     def set_default_spark_session(self):
         if self.spark is None or self.spark.is_stopped:
-            try:
-                from databricks.connect.session import DatabricksSession as SparkSession
+            _validate_databricks_connect_available()
+            from databricks.connect.session import DatabricksSession as SparkSession
 
-                if self.profile:
-                    builder = SparkSession.builder.profile(self.profile)
-                else:
-                    builder = SparkSession.builder
-
-                if hasattr(SparkSession.Builder, "serverless"):
-                    self.spark = builder.serverless(True).getOrCreate()
-                else:
-                    _logger.warning(
-                        "Serverless is not supported by the current databricks-connect "
-                        "version, please install with `pip install databricks-connect==15.1.0` "
-                        "to use serverless compute in Databricks."
-                    )
-                    # serverless is not supported in older versions of databricks-connect
-                    # a cluster id must be provided instead
-                    if self.cluster_id:
-                        self.spark = builder.remote(cluster_id=self.cluster_id).getOrCreate()
-                    else:
-                        raise ValueError(
-                            "cluster_id is required for connecting to a spark session in Databricks. "
-                            "Please provide it when constructing the DatabricksFunctionClient."
-                        )
-            except ImportError as e:
-                raise ImportError(
-                    "Could not import databricks-connect python package. "
-                    "If you want to use databricks with dbconnect to create UC functions "
-                    "then please install it with `pip install databricks-connect`."
-                ) from e
+            if self.profile:
+                builder = SparkSession.builder.profile(self.profile)
+            else:
+                builder = SparkSession.builder
+            self.spark = builder.serverless(True).getOrCreate()
 
     def stop_spark_session(self):
         if self.spark is not None and not self.spark.is_stopped:
             self.spark.stop()
+
+    def _validate_warehouse_type(self):
+        if (
+            self.warehouse_id
+            and not self.client.warehouses.get(self.warehouse_id).enable_serverless_compute
+        ):
+            raise ValueError(
+                f"Warehouse {self.warehouse_id} does not support serverless compute. "
+                "Please use a serverless warehouse following the instructions here: "
+                "https://docs.databricks.com/en/admin/sql/serverless.html#enable-serverless-sql-warehouses."
+            )
 
     @override
     def create_function(
@@ -186,14 +180,14 @@ class DatabricksFunctionClient(BaseFunctionClient):
         """
         Create a UC function with the given sql body or function info.
 
+        Note: `databricks-connect` is required to use this function, make sure its version is 15.1.0 or above to use
+            serverless compute.
+
         Args:
             sql_function_body: The sql body of the function. Defaults to None.
                 It should follow the syntax of CREATE FUNCTION statement in Databricks.
                 Ref: https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-ddl-create-sql-function.html#syntax
 
-                .. Note:: This is supported using databricks connect; if databricks-connect version is 15.1.0 or above,
-                    by default it uses serverless compute; otherwise please provide a cluster_id when constructing the client
-                    and the client will use remote cluster to create the function.
             function_info: The function info. Defaults to None.
 
         Returns:
@@ -202,50 +196,14 @@ class DatabricksFunctionClient(BaseFunctionClient):
         if sql_function_body and function_info:
             raise ValueError("Only one of sql_function_body and function_info should be provided.")
         if sql_function_body:
-            # databricks-connect is easier to use for executing command than databricks-sdk,
-            # so we use databricks-connect to create function if available
-            if _databricks_connect_available():
-                _logger.info("Using databricks connect to create function.")
-                try:
-                    self.set_default_spark_session()
-                    self.spark.sql(sql_function_body)
-                except Exception as e:
-                    raise RuntimeError(
-                        f"Failed to create function with sql body: {sql_function_body}"
-                    ) from e
-            elif self.cluster_id:
-                _logger.info("Using databricks cluster to create function.")
-                from databricks.sdk.service.compute import CommandStatus, ContextStatus, Language
-
-                context_result = self.client._command_execution.create_and_wait(
-                    cluster_id=self.cluster_id, language=Language.SQL
-                )
-                if context_result.status == ContextStatus.RUNNING:
-                    result = self.client._command_execution.execute_and_wait(
-                        cluster_id=self.cluster_id,
-                        command=sql_function_body,
-                        context_id=context_result.id,
-                        language=Language.SQL,
-                    )
-                    if result.status in (
-                        CommandStatus.ERROR,
-                        CommandStatus.CANCELLED,
-                        CommandStatus.CANCELLING,
-                    ):
-                        raise Exception(f"Error when executing the command: {result}")
-                # TODO: add retry here
-                elif context_result.status == ContextStatus.PENDING:
-                    raise Exception(
-                        "The cluster is still pending, please wait for it to be running and try again later"
-                    )
-                else:
-                    raise Exception(
-                        "Error when starting the cluster, please check the cluster status and try again later"
-                    )
-            else:
-                raise Exception(
-                    "Cannot create function with sql body without databricks connect or cluster_id."
-                )
+            self.set_default_spark_session()
+            try:
+                # TODO: add timeout
+                self.spark.sql(sql_function_body)
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to create function with sql body: {sql_function_body}"
+                ) from e
             return self.get_function(extract_function_name(sql_function_body))
         if function_info:
             # TODO: support this after CreateFunction bug is fixed in databricks-sdk
@@ -382,10 +340,22 @@ class DatabricksFunctionClient(BaseFunctionClient):
     def _execute_uc_function(
         self, function_info: "FunctionInfo", parameters: Dict[str, Any], **kwargs: Any
     ) -> Any:
+        if self.warehouse_id:
+            return self._execute_uc_functions_with_warehouse(function_info, parameters)
+        else:
+            return self._execute_uc_functions_with_serverless(function_info, parameters)
+
+    def _execute_uc_functions_with_warehouse(
+        self, function_info: "FunctionInfo", parameters: Dict[str, Any]
+    ) -> FunctionExecutionResult:
         from databricks.sdk.service.sql import StatementState
 
+        _logger.info("Executing function using client warehouse_id.")
+
+        passed_execute_statement_args = parameters.pop(EXECUTE_FUNCTION_ARG_NAME, {})
         if (
-            function_info.input_params
+            passed_execute_statement_args
+            and function_info.input_params
             and function_info.input_params.parameters
             and any(
                 p.name == EXECUTE_FUNCTION_ARG_NAME for p in function_info.input_params.parameters
@@ -407,7 +377,6 @@ class DatabricksFunctionClient(BaseFunctionClient):
             for p in allowed_execute_statement_args.values()
         ):
             invalid_params: Set[str] = set()
-            passed_execute_statement_args = parameters.pop(EXECUTE_FUNCTION_ARG_NAME, {})
             for k, v in passed_execute_statement_args.items():
                 if k in allowed_execute_statement_args:
                     execute_statement_args[k] = v
@@ -419,124 +388,122 @@ class DatabricksFunctionClient(BaseFunctionClient):
                     f"Allowed parameters are: {allowed_execute_statement_args.keys()}."
                 )
 
-        if self.warehouse_id:
-            _logger.info("Executing function using client warehouse_id.")
-            parametrized_statement = get_execute_function_sql_stmt(function_info, parameters)
-            response = self.client.statement_execution.execute_statement(
-                statement=parametrized_statement.statement,
-                warehouse_id=self.warehouse_id,
-                parameters=parametrized_statement.parameters,
-                **execute_statement_args,  # type: ignore
+        parametrized_statement = get_execute_function_sql_stmt(function_info, parameters)
+        response = self.client.statement_execution.execute_statement(
+            statement=parametrized_statement.statement,
+            warehouse_id=self.warehouse_id,
+            parameters=parametrized_statement.parameters,
+            **execute_statement_args,  # type: ignore
+        )
+        # TODO: the first time the warehouse is invoked, it might take longer than
+        # expected, so it's still pending even after 6 times of retry;
+        # we should see if we can check the warehouse status before invocation, and
+        # increase the wait time if needed
+        if response.status and job_pending(response.status.state) and response.statement_id:
+            statement_id = response.statement_id
+            _logger.info("Retrying to get statement execution status...")
+            wait_time = 0
+            retry_cnt = 0
+            client_execution_timeout = int(
+                os.environ.get(
+                    UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT,
+                    DEFAULT_UC_AI_CLIENT_EXECUTION_TIMEOUT,
+                )
             )
-            # TODO: the first time the warehouse is invoked, it might take longer than
-            # expected, so it's still pending even after 6 times of retry;
-            # we should see if we can check the warehouse status before invocation, and
-            # increase the wait time if needed
-            if response.status and job_pending(response.status.state) and response.statement_id:
-                statement_id = response.statement_id
-                _logger.info("Retrying to get statement execution status...")
-                wait_time = 0
-                retry_cnt = 0
-                client_execution_timeout = int(
-                    os.environ.get(
-                        UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT,
-                        DEFAULT_UC_AI_CLIENT_EXECUTION_TIMEOUT,
-                    )
+            while wait_time < client_execution_timeout:
+                wait = min(2**retry_cnt, client_execution_timeout - wait_time)
+                time.sleep(wait)
+                _logger.info(f"Retry times: {retry_cnt}")
+                response = self.client.statement_execution.get_statement(statement_id)
+                if response.status is None or not job_pending(response.status.state):
+                    break
+                wait_time += wait
+                retry_cnt += 1
+            if response.status and job_pending(response.status.state):
+                return FunctionExecutionResult(
+                    error=f"Statement execution is still {response.status.state.value.lower()} after {wait_time} "
+                    "seconds. Please increase the wait_timeout argument for executing "
+                    f"the function or increase {UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT} environment "
+                    f"variable for increasing retrying time, default value is {DEFAULT_UC_AI_CLIENT_EXECUTION_TIMEOUT} seconds."
                 )
-                while wait_time < client_execution_timeout:
-                    wait = min(2**retry_cnt, client_execution_timeout - wait_time)
-                    time.sleep(wait)
-                    _logger.info(f"Retry times: {retry_cnt}")
-                    response = self.client.statement_execution.get_statement(statement_id)
-                    if response.status is None or not job_pending(response.status.state):
-                        break
-                    wait_time += wait
-                    retry_cnt += 1
-                if response.status and job_pending(response.status.state):
-                    return FunctionExecutionResult(
-                        error=f"Statement execution is still pending after {wait_time} "
-                        "seconds. Please increase the wait_timeout argument for executing "
-                        f"the function or increase {UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT} environment "
-                        f"variable for increasing retrying time, default value is {DEFAULT_UC_AI_CLIENT_EXECUTION_TIMEOUT} seconds."
-                    )
-            if response.status is None:
-                return FunctionExecutionResult(error=f"Statement execution failed: {response}")
-            if response.status.state != StatementState.SUCCEEDED:
-                error = response.status.error
-                if error is None:
-                    return FunctionExecutionResult(
-                        error=f"Statement execution failed but no error message was provided: {response}"
-                    )
-                return FunctionExecutionResult(error=f"{error.error_code}: {error.message}")
+        if response.status is None:
+            return FunctionExecutionResult(error=f"Statement execution failed: {response}")
+        if response.status.state != StatementState.SUCCEEDED:
+            error = response.status.error
+            if error is None:
+                return FunctionExecutionResult(
+                    error=f"Statement execution failed but no error message was provided: {response}"
+                )
+            return FunctionExecutionResult(error=f"{error.error_code}: {error.message}")
 
-            manifest = response.manifest
-            if manifest is None:
+        manifest = response.manifest
+        if manifest is None:
+            return FunctionExecutionResult(
+                error="Statement execution succeeded but no manifest was returned."
+            )
+        truncated = manifest.truncated
+        if response.result is None:
+            return FunctionExecutionResult(
+                error="Statement execution succeeded but no result was provided."
+            )
+        data_array = response.result.data_array
+        if is_scalar(function_info):
+            value = None
+            if data_array and len(data_array) > 0 and len(data_array[0]) > 0:
+                # value is always string type
+                value = data_array[0][0]
+            return FunctionExecutionResult(format="SCALAR", value=value, truncated=truncated)
+        else:
+            try:
+                import pandas as pd
+            except ImportError as e:
+                raise ImportError(
+                    "Could not import pandas python package. Please install it with `pip install pandas`."
+                ) from e
+
+            schema = manifest.schema
+            if schema is None or schema.columns is None:
                 return FunctionExecutionResult(
-                    error="Statement execution succeeded but no manifest was returned."
+                    error="Statement execution succeeded but no schema was provided for table function."
                 )
-            truncated = manifest.truncated
-            if response.result is None:
-                return FunctionExecutionResult(
-                    error="Statement execution succeeded but no result was provided."
-                )
-            data_array = response.result.data_array
+            columns = [c.name for c in schema.columns]
+            if data_array is None:
+                data_array = []
+            pdf = pd.DataFrame(data_array, columns=columns)
+            csv_buffer = StringIO()
+            pdf.to_csv(csv_buffer, index=False)
+            return FunctionExecutionResult(
+                format="CSV", value=csv_buffer.getvalue(), truncated=truncated
+            )
+
+    def _execute_uc_functions_with_serverless(
+        self, function_info: "FunctionInfo", parameters: Dict[str, Any]
+    ) -> FunctionExecutionResult:
+        _logger.info("Using databricks connect to execute functions with serverless compute.")
+        self.set_default_spark_session()
+        sql_command = get_execute_function_sql_command(function_info, parameters)
+        try:
+            result = self.spark.sql(sqlQuery=sql_command)
             if is_scalar(function_info):
-                value = None
-                if data_array and len(data_array) > 0 and len(data_array[0]) > 0:
-                    # value is always string type
-                    value = data_array[0][0]
-                return FunctionExecutionResult(format="SCALAR", value=value, truncated=truncated)
+                return FunctionExecutionResult(format="SCALAR", value=str(result.collect()[0][0]))
             else:
-                try:
-                    import pandas as pd
-                except ImportError as e:
-                    raise ImportError(
-                        "Could not import pandas python package. Please install it with `pip install pandas`."
-                    ) from e
-
-                schema = manifest.schema
-                if schema is None or schema.columns is None:
-                    return FunctionExecutionResult(
-                        error="Statement execution succeeded but no schema was provided for table function."
+                row_limit = int(
+                    os.environ.get(
+                        UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT,
+                        DEFAULT_UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT,
                     )
-                columns = [c.name for c in schema.columns]
-                if data_array is None:
-                    data_array = []
-                pdf = pd.DataFrame(data_array, columns=columns)
+                )
+                truncated = result.count() > row_limit
+                pdf = result.limit(row_limit).toPandas()
                 csv_buffer = StringIO()
                 pdf.to_csv(csv_buffer, index=False)
                 return FunctionExecutionResult(
                     format="CSV", value=csv_buffer.getvalue(), truncated=truncated
                 )
-
-        else:
-            _logger.info("Using databricks connect to execute functions with serverless compute.")
-            self.set_default_spark_session()
-            sql_command = get_execute_function_sql_command(function_info, parameters)
-            try:
-                result = self.spark.sql(sqlQuery=sql_command)
-                if is_scalar(function_info):
-                    return FunctionExecutionResult(
-                        format="SCALAR", value=str(result.collect()[0][0])
-                    )
-                else:
-                    row_limit = int(
-                        os.environ.get(
-                            UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT,
-                            DEFAULT_UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT,
-                        )
-                    )
-                    truncated = result.count() > row_limit
-                    pdf = result.limit(row_limit).toPandas()
-                    csv_buffer = StringIO()
-                    pdf.to_csv(csv_buffer, index=False)
-                    return FunctionExecutionResult(
-                        format="CSV", value=csv_buffer.getvalue(), truncated=truncated
-                    )
-            except Exception as e:
-                raise RuntimeError(
-                    f"Failed to execute function with function name: {function_info.full_name}"
-                ) from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to execute function with function name: {function_info.full_name}"
+            ) from e
 
     @override
     def validate_input_params(self, input_params: Any, parameters: Dict[str, Any]) -> None:
@@ -549,13 +516,12 @@ class DatabricksFunctionClient(BaseFunctionClient):
         return {
             # TODO: workspaceClient related config
             "warehouse_id": self.warehouse_id,
-            "cluster_id": self.cluster_id,
             "profile": self.profile,
         }
 
     @classmethod
     def from_dict(cls, config: Dict[str, Any]):
-        accept_keys = ["warehouse_id", "cluster_id", "profile"]
+        accept_keys = ["warehouse_id", "profile"]
         return cls(**{k: v for k, v in config.items() if k in accept_keys})
 
 

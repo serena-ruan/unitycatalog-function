@@ -304,7 +304,7 @@ $$
 """
         client.create_function(sql_function_body=sql_body)
         result = client.execute_function(func_name)
-        assert result.error.startswith("Statement execution is still pending after 5 seconds")
+        assert result.error.startswith("Statement execution is still running after 5 seconds")
 
         monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "100")
         result = client.execute_function(func_name)

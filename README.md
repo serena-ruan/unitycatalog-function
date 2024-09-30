@@ -21,22 +21,23 @@ To use Databricks-managed Unity Catalog with this package, follow the [instructi
 
 #### Prerequisites
 
+- **[Highly recommended]** Use python>=3.10 for accessing all functionalities including function creation and function execution.
 - Install databricks-sdk package with `pip install databricks-sdk`.
-- For accessing the UC functions in Databricks, please create a SQL warehouse following [this instruction](https://docs.databricks.com/en/compute/sql-warehouse/create.html), and save the warehouse id.
-- [Optional] Install databricks-connect package with `pip install databricks-connect`.
-  - This package is only required for creating UC functions using sql body.
-  - If you want to use [serverless compute](https://docs.databricks.com/en/compute/use-compute.html#use-serverless-compute) for function creation, please make sure you have python>=3.10 and databricks-connect==15.1.0.
-  - If you want to use [your own cluster](https://docs.databricks.com/en/compute/use-compute.html#create-new-compute-using-a-policy) for function creation, please make sure the cluster is up running and pass the cluster_id when creating DatabricksFunctionClient.
+- For creating UC functions with SQL body, **only [serverless compute](https://docs.databricks.com/en/compute/use-compute.html#use-serverless-compute) is supported**.
+  Install databricks-connect package with `pip install databricks-connect==15.1.0`, **python>=3.10** is a requirement to install this version.
+- For executing the UC functions in Databricks, use either SQL warehouse or Databricks Connect with serverless:
+  - SQL warehouse: create a SQL warehouse following [this instruction](https://docs.databricks.com/en/compute/sql-warehouse/create.html), and use the warehouse id when initializing the client.
+    NOTE: **only `serverless` [SQL warehouse type](https://docs.databricks.com/en/admin/sql/warehouse-types.html#sql-warehouse-types) is supported** because of performance concerns.
+  - Databricks connect with serverless: Install databricks-connect package with `pip install databricks-connect==15.1.0`. No config needs to be passed when initializing the client.
 
 #### Client initialization
+
+In this example, we use serverless compute as an example.
 
 ```python
 from ucai.core.databricks import DatabricksFunctionClient
 
-client = DatabricksFunctionClient(
-    warehouse_id="..." # replace with the warehouse_id
-    cluster_id="..." # optional, only pass when you want to use cluster for function creation
-)
+client = DatabricksFunctionClient()
 ```
 
 #### Create a UC function

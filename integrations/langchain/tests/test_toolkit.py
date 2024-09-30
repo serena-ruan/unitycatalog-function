@@ -37,7 +37,7 @@ def test_toolkit_e2e(use_serverless, monkeypatch):
             tools = toolkit.tools
             assert len(tools) == 1
             tool = tools[0]
-            assert tool.name == func_obj.full_function_name.replace(".", "__")
+            assert tool.name == func_obj.tool_name
             assert tool.description == func_obj.comment
             assert tool.client_config == client.to_dict()
             tool.args_schema(**{"code": "print(1)"})
@@ -46,7 +46,7 @@ def test_toolkit_e2e(use_serverless, monkeypatch):
 
             toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
             assert len(toolkit.tools) >= 1
-            assert get_tool_name(func_obj.full_function_name) in [t.name for t in toolkit.tools]
+            assert func_obj.tool_name in [t.name for t in toolkit.tools]
 
 
 @requires_databricks
@@ -59,7 +59,7 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
         tools = toolkit.tools
         assert len(tools) == 1
         tool = tools[0]
-        assert tool.name == func_obj.full_function_name.replace(".", "__")
+        assert tool.name == func_obj.tool_name
         assert tool.description == func_obj.comment
         assert tool.client_config == client.to_dict()
         tool.args_schema(**{"code": "print(1)"})
@@ -68,7 +68,7 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
 
         toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"], client=client)
         assert len(toolkit.tools) >= 1
-        assert get_tool_name(func_obj.full_function_name) in [t.name for t in toolkit.tools]
+        assert func_obj.tool_name in [t.name for t in toolkit.tools]
 
 
 @requires_databricks
@@ -81,7 +81,7 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
         tools = toolkit.tools
         assert len(tools) == 1
         tool = tools[0]
-        assert tool.name == func_obj.full_function_name.replace(".", "__")
+        assert tool.name == func_obj.tool_name
         assert tool.description == func_obj.comment
         assert tool.client_config == client.to_dict()
         tool.args_schema(**{"code": "print(1)"})
@@ -90,7 +90,7 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
 
         toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"], client=client)
         assert len(toolkit.tools) >= 1
-        assert get_tool_name(func_obj.full_function_name) in [t.name for t in toolkit.tools]
+        assert func_obj.tool_name in [t.name for t in toolkit.tools]
 
 
 @requires_databricks
@@ -102,9 +102,7 @@ def test_multiple_toolkits(use_serverless, monkeypatch):
         toolkit1 = UCFunctionToolkit(function_names=[func_obj.full_function_name])
         toolkit2 = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
         tool1 = toolkit1.tools[0]
-        tool2 = [t for t in toolkit2.tools if t.name == get_tool_name(func_obj.full_function_name)][
-            0
-        ]
+        tool2 = [t for t in toolkit2.tools if t.name == func_obj.tool_name][0]
         input_args = {"code": "print(1)"}
         assert tool1.func(**input_args) == tool2.func(**input_args)
 

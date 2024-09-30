@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from typing import Generator, NamedTuple, Optional
 
 from ucai.core.databricks import DatabricksFunctionClient
+from ucai.core.utils.function_processing_utils import get_tool_name
 
 CATALOG = "ml"
 SCHEMA = "serena_uc_test"
@@ -33,6 +34,7 @@ def generate_func_name_and_cleanup(client: DatabricksFunctionClient):
 class FunctionObj(NamedTuple):
     full_function_name: str
     comment: str
+    tool_name: str
 
 
 @contextmanager
@@ -62,7 +64,9 @@ $$
     )
     try:
         client.create_function(sql_function_body=sql_body)
-        yield FunctionObj(full_function_name=func_name, comment=comment)
+        yield FunctionObj(
+            full_function_name=func_name, comment=comment, tool_name=get_tool_name(func_name)
+        )
     finally:
         try:
             client.client.functions.delete(func_name)
