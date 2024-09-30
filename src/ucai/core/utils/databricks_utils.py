@@ -57,6 +57,16 @@ class NoOpFunctionsAPI:
         return FunctionInfo()
 
 
+class NoOpWarehouse:
+    enable_serverless_compute: bool = True
+
+
+class NoOpWarehousesAPI:
+    def get(self, *args, **kwargs):
+        return NoOpWarehouse()
+
+
 class NoOpClient:
     statement_execution: NoOpStatementExecutionAPI = NoOpStatementExecutionAPI()
     functions: NoOpFunctionsAPI = NoOpFunctionsAPI()
+    warehouses: NoOpWarehousesAPI = NoOpWarehousesAPI()
