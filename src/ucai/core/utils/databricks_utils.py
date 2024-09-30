@@ -26,7 +26,7 @@ def get_default_databricks_workspace_client() -> "WorkspaceClient":
     return NoOpClient()
 
 
-class NoOpStatementExecutionAPI:
+class _NoOpStatementExecutionAPI:
     def execute_statement(self, *args, **kwargs):
         from databricks.sdk.service.sql import (
             ResultData,
@@ -43,13 +43,13 @@ class NoOpStatementExecutionAPI:
         )
 
 
-class NoOpAPIClient:
+class _NoOpAPIClient:
     def do(self, *args, **kwargs):
         return {}
 
 
-class NoOpFunctionsAPI:
-    _api: NoOpAPIClient = NoOpAPIClient()
+class _NoOpFunctionsAPI:
+    _api: _NoOpAPIClient = _NoOpAPIClient()
 
     def get(self, *args, **kwargs):
         from databricks.sdk.service.catalog import FunctionInfo
@@ -57,16 +57,19 @@ class NoOpFunctionsAPI:
         return FunctionInfo()
 
 
-class NoOpWarehouse:
+class _NoOpWarehouse:
     enable_serverless_compute: bool = True
 
 
-class NoOpWarehousesAPI:
+class _NoOpWarehousesAPI:
     def get(self, *args, **kwargs):
-        return NoOpWarehouse()
+        return _NoOpWarehouse()
 
 
+# This is a no-op client that can be used as a fallback when the databricks
+# WorkspaceClient fails to initialize. It mocks the behavior of WorkspaceClient
+# and its methods used in the UCAI codebase, but actually does nothing.
 class NoOpClient:
-    statement_execution: NoOpStatementExecutionAPI = NoOpStatementExecutionAPI()
-    functions: NoOpFunctionsAPI = NoOpFunctionsAPI()
-    warehouses: NoOpWarehousesAPI = NoOpWarehousesAPI()
+    statement_execution: _NoOpStatementExecutionAPI = _NoOpStatementExecutionAPI()
+    functions: _NoOpFunctionsAPI = _NoOpFunctionsAPI()
+    warehouses: _NoOpWarehousesAPI = _NoOpWarehousesAPI()
