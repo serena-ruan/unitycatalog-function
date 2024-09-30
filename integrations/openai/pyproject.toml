@@ -15,12 +15,20 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
+databricks-dev=[
   "pytest",
   "typing_extensions",
   # temp needed before ucai-core[databricks] is released
   "databricks-sdk>=0.32.0",
   "databricks-connect==15.1.0",
+  "ruff==0.6.4"
+]
+dev = [
+  "pytest",
+  "typing_extensions",
+  # temp needed before ucai-core[databricks] is released
+  "databricks-sdk>=0.32.0",
+  "databricks-connect",
   "ruff==0.6.4"
 ]
 
