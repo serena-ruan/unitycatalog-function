@@ -13,7 +13,7 @@ from openai.types.chat.chat_completion_message_tool_call import Function
 from ucai.core.client import set_uc_function_client
 from ucai.core.utils.function_processing_utils import get_tool_name
 from ucai.test_utils.client_utils import (
-    SERVERLESS_ENV,
+    USE_SERVERLESS,
     get_client,
     requires_databricks,
     set_default_client,
@@ -27,10 +27,15 @@ from tests.helper_functions import mock_chat_completion_response, mock_choice
 from ucai_openai.toolkit import UCFunctionToolkit
 
 
+@pytest.fixture(autouse=True)
+def env_setup(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+
+
 @requires_databricks
 @pytest.mark.parametrize("use_serverless", [True, False])
 def test_tool_calling(use_serverless, monkeypatch):
-    monkeypatch.setenv(SERVERLESS_ENV, str(use_serverless))
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
     with (
         set_default_client(client),
@@ -94,7 +99,7 @@ def test_tool_calling(use_serverless, monkeypatch):
 @requires_databricks
 @pytest.mark.parametrize("use_serverless", [True, False])
 def test_tool_calling_with_multiple_choices(use_serverless, monkeypatch):
-    monkeypatch.setenv(SERVERLESS_ENV, str(use_serverless))
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
     with (
         set_default_client(client),
@@ -164,7 +169,7 @@ def test_tool_calling_with_multiple_choices(use_serverless, monkeypatch):
 @requires_databricks
 @pytest.mark.parametrize("use_serverless", [True, False])
 def test_tool_calling_work_with_non_json_schema(use_serverless, monkeypatch):
-    monkeypatch.setenv(SERVERLESS_ENV, str(use_serverless))
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     func_name = random_func_name()
     function_name = func_name.split(".")[-1]
     sql_body = f"""CREATE FUNCTION {func_name}(start DATE, end DATE)
@@ -240,7 +245,7 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
 @requires_databricks
 @pytest.mark.parametrize("use_serverless", [True, False])
 def test_tool_choice_param(use_serverless, monkeypatch):
-    monkeypatch.setenv(SERVERLESS_ENV, str(use_serverless))
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     cap_func = random_func_name()
     sql_body1 = f"""CREATE FUNCTION {cap_func}(s STRING)
 RETURNS STRING
@@ -334,7 +339,7 @@ $$
 
 @pytest.mark.parametrize("use_serverless", [True, False])
 def test_openai_toolkit_initialization(use_serverless, monkeypatch):
-    monkeypatch.setenv(SERVERLESS_ENV, str(use_serverless))
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
     with pytest.raises(
         ValueError,
@@ -366,7 +371,7 @@ def generate_function_info(parameters: List[Dict], catalog="catalog", schema="sc
 
 @pytest.mark.parametrize("use_serverless", [True, False])
 def test_function_definition_generation(use_serverless, monkeypatch):
-    monkeypatch.setenv(SERVERLESS_ENV, str(use_serverless))
+    monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
     with set_default_client(client):
         function_info = generate_function_info(

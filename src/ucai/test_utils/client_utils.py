@@ -7,10 +7,13 @@ import pytest
 from ucai.core.client import set_uc_function_client
 from ucai.core.databricks import DatabricksFunctionClient
 
-SERVERLESS_ENV = "USE_SERVERLESS"
-USE_SERVERLESS = os.environ.get("USE_SERVERLESS", "false").lower() == "true"
+USE_SERVERLESS = "USE_SERVERLESS"
 TEST_IN_DATABRICKS = os.environ.get("TEST_IN_DATABRICKS", "false").lower() == "true"
 WAREHOUSE_ID = os.environ.get("WAREHOUSE_ID", "warehouse_id")
+
+
+def use_serverless():
+    return os.environ.get(USE_SERVERLESS, "false").lower() == "true"
 
 
 def requires_databricks(test_func):
@@ -42,7 +45,7 @@ def get_client() -> DatabricksFunctionClient:
     if TEST_IN_DATABRICKS:
         return (
             DatabricksFunctionClient()
-            if USE_SERVERLESS
+            if use_serverless()
             else DatabricksFunctionClient(warehouse_id=WAREHOUSE_ID)
         )
     else:
@@ -52,7 +55,7 @@ def get_client() -> DatabricksFunctionClient:
         ):
             return (
                 DatabricksFunctionClient()
-                if USE_SERVERLESS
+                if use_serverless()
                 else DatabricksFunctionClient(warehouse_id=WAREHOUSE_ID)
             )
 
