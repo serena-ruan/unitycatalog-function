@@ -6,8 +6,8 @@ from typing import Generator, NamedTuple, Optional
 from ucai.core.databricks import DatabricksFunctionClient
 from ucai.core.utils.function_processing_utils import get_tool_name
 
-CATALOG = "ml"
-SCHEMA = "serena_uc_test"
+CATALOG = "integration_testing"
+SCHEMA = "uc_ai_test"
 
 _logger = logging.getLogger(__name__)
 
