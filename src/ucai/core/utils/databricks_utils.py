@@ -38,7 +38,7 @@ class _NoOpStatementExecutionAPI:
 
         return StatementResponse(
             manifest=ResultManifest(truncated=False),
-            result=ResultData(data_array=[["null"]]),
+            result=ResultData(data_array=[[]]),
             status=StatementStatus(state=StatementState.SUCCEEDED),
         )
 

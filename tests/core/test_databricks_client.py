@@ -823,4 +823,4 @@ def test_default_noop_client_if_databricks_sdk_missing():
         assert function_info is not None
         assert all(x is None for x in function_info.__dict__.values())
         assert client.list_functions(catalog="catalog", schema="schema") == []
-        assert client.execute_function("catalog.schema.test").value == "null"
+        assert client.execute_function("catalog.schema.test").value is None
