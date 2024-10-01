@@ -16,7 +16,6 @@ from ucai.test_utils.function_utils import create_function_and_cleanup
 from ucai_anthropic.toolkit import UCFunctionToolkit
 
 
-# Updated mock response structure for Anthropic
 def mock_anthropic_tool_response(function_name, input_data):
     return Message(
         content=[
@@ -68,11 +67,9 @@ def test_tool_calling_with_anthropic(use_serverless, monkeypatch):
             arguments = tool_calls[1].input
             assert isinstance(arguments.get("location"), str)
 
-            # Execute the function based on the arguments
             result = client.execute_function(func_name, arguments)
             assert result.value == "27.6 celsius"
 
-            # Create a message containing the result of the function call
             function_call_result_message = {
                 "role": "user",
                 "content": [
@@ -84,7 +81,6 @@ def test_tool_calling_with_anthropic(use_serverless, monkeypatch):
                 ],
             }
 
-            # Make the second API call with the `tool_result` block
             final_response = Anthropic().messages.create(
                 model="claude-3-5-sonnet-20240620",
                 messages=[*messages, {"role": "assistant", "content": tool_calls}, function_call_result_message],
@@ -127,11 +123,9 @@ def test_tool_calling_with_multiple_tools_anthropic(use_serverless, monkeypatch)
             arguments = tool_calls[1].input
             assert isinstance(arguments.get("location"), str)
 
-            # Execute the function for the first tool call
             result = client.execute_function(func_name, arguments)
             assert result.value == "27.6 celsius"
 
-            # Create the result message for the first tool call
             function_call_result_message = {
                 "role": "user",
                 "content": [
@@ -143,7 +137,6 @@ def test_tool_calling_with_multiple_tools_anthropic(use_serverless, monkeypatch)
                 ],
             }
 
-            # Execute the second function call for New York
             with mock.patch(
                 "anthropic.Anthropic.messages.create",
                 return_value=mock_anthropic_tool_response(
