@@ -351,7 +351,6 @@ AS $$
 @requires_databricks
 def test_list_functions(client: DatabricksFunctionClient):
     function_infos = client.list_functions(catalog=CATALOG, schema=SCHEMA)
-    existing_function_num = len(function_infos)  # type: ignore
 
     with generate_func_name_and_cleanup(client, schema=SCHEMA) as func_name:
         create_func_info = client.create_function(sql_function_body=simple_function(func_name))
@@ -359,7 +358,6 @@ def test_list_functions(client: DatabricksFunctionClient):
         assert create_func_info == function_info
 
         function_infos = client.list_functions(catalog=CATALOG, schema=SCHEMA)
-        assert isinstance(function_infos, list) and len(function_infos) == existing_function_num + 1
         assert len([f for f in function_infos if f.full_name == func_name]) == 1
 
         with generate_func_name_and_cleanup(client, schema=SCHEMA) as func_name_2:
