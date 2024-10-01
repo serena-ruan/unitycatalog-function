@@ -44,7 +44,7 @@ DEFAULT_UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT = "100"
 DATABRICKS_CONNECT_SUPPORTED_VERSION = "15.1.0"
 DATABRICKS_CONNECT_IMPORT_ERROR_MESSAGE = (
     "Could not import databricks-connect python package. "
-    "TO interact with UC functions using serverless compute, install the package with "
+    "To interact with UC functions using serverless compute, install the package with "
     f"`pip install databricks-connect=={DATABRICKS_CONNECT_SUPPORTED_VERSION}`. "
     "Please note this requires python>=3.10."
 )
