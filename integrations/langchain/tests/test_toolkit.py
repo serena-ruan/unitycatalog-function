@@ -19,11 +19,12 @@ from ucai.test_utils.client_utils import (
 )
 from ucai.test_utils.function_utils import (
     CATALOG,
-    SCHEMA,
     create_function_and_cleanup,
 )
 
 from ucai_langchain.toolkit import UCFunctionToolkit
+
+SCHEMA = "ucai_langchain_test"
 
 
 @requires_databricks
@@ -32,7 +33,7 @@ def test_toolkit_e2e(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
     with set_default_client(client):
-        with create_function_and_cleanup(client) as func_obj:
+        with create_function_and_cleanup(client, schema=SCHEMA) as func_obj:
             toolkit = UCFunctionToolkit(function_names=[func_obj.full_function_name])
             tools = toolkit.tools
             assert len(tools) == 1
@@ -54,7 +55,7 @@ def test_toolkit_e2e(use_serverless, monkeypatch):
 def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
-    with set_default_client(client), create_function_and_cleanup(client) as func_obj:
+    with set_default_client(client), create_function_and_cleanup(client, schema=SCHEMA) as func_obj:
         toolkit = UCFunctionToolkit(function_names=[func_obj.full_function_name], client=client)
         tools = toolkit.tools
         assert len(tools) == 1
@@ -76,7 +77,7 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
 def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
-    with set_default_client(client), create_function_and_cleanup(client) as func_obj:
+    with set_default_client(client), create_function_and_cleanup(client, schema=SCHEMA) as func_obj:
         toolkit = UCFunctionToolkit(function_names=[func_obj.full_function_name], client=client)
         tools = toolkit.tools
         assert len(tools) == 1
@@ -98,7 +99,7 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
 def test_multiple_toolkits(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
-    with set_default_client(client), create_function_and_cleanup(client) as func_obj:
+    with set_default_client(client), create_function_and_cleanup(client, schema=SCHEMA) as func_obj:
         toolkit1 = UCFunctionToolkit(function_names=[func_obj.full_function_name])
         toolkit2 = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
         tool1 = toolkit1.tools[0]

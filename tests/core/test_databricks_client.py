@@ -33,10 +33,11 @@ from ucai.test_utils.client_utils import (
 )
 from ucai.test_utils.function_utils import (
     CATALOG,
-    SCHEMA,
     generate_func_name_and_cleanup,
     random_func_name,
 )
+
+SCHEMA = "ucai_core_test"
 
 
 class FunctionInputOutput(NamedTuple):
@@ -238,7 +239,7 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
 def test_create_and_execute_function(
     client: DatabricksFunctionClient, create_function: Callable[[str], FunctionInputOutput]
 ):
-    with generate_func_name_and_cleanup(client) as func_name:
+    with generate_func_name_and_cleanup(client, schema=SCHEMA) as func_name:
         function_sample = create_function(func_name)
         client.create_function(sql_function_body=function_sample.sql_body)
         for input_example in function_sample.inputs:
@@ -266,7 +267,7 @@ def test_create_and_execute_function_using_serverless(
     serverless_client: DatabricksFunctionClient,
     create_function: Callable[[str], FunctionInputOutput],
 ):
-    with generate_func_name_and_cleanup(serverless_client) as func_name:
+    with generate_func_name_and_cleanup(serverless_client, schema=SCHEMA) as func_name:
         function_sample = create_function(func_name)
         serverless_client.create_function(sql_function_body=function_sample.sql_body)
         for input_example in function_sample.inputs:
@@ -280,7 +281,7 @@ def test_execute_function_using_serverless_row_limit(
     monkeypatch,
 ):
     monkeypatch.setenv(UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT, "1")
-    with generate_func_name_and_cleanup(serverless_client) as func_name:
+    with generate_func_name_and_cleanup(serverless_client, schema=SCHEMA) as func_name:
         function_sample = function_with_table_output(func_name)
         serverless_client.create_function(sql_function_body=function_sample.sql_body)
         result = serverless_client.execute_function(func_name, function_sample.inputs[0])
@@ -291,7 +292,7 @@ def test_execute_function_using_serverless_row_limit(
 @requires_databricks
 def test_execute_function_with_timeout(client: DatabricksFunctionClient, monkeypatch):
     monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "5")
-    with generate_func_name_and_cleanup(client) as func_name:
+    with generate_func_name_and_cleanup(client, schema=SCHEMA) as func_name:
         sql_body = f"""CREATE FUNCTION {func_name}()
 RETURNS STRING
 LANGUAGE PYTHON
@@ -313,7 +314,7 @@ $$
 
 @requires_databricks
 def test_get_function(client: DatabricksFunctionClient):
-    with generate_func_name_and_cleanup(client) as func_name:
+    with generate_func_name_and_cleanup(client, schema=SCHEMA) as func_name:
         sql_body = f"""CREATE FUNCTION {func_name}(s STRING)
 RETURNS STRING
 LANGUAGE PYTHON
@@ -352,7 +353,7 @@ def test_list_functions(client: DatabricksFunctionClient):
     function_infos = client.list_functions(catalog=CATALOG, schema=SCHEMA)
     existing_function_num = len(function_infos)  # type: ignore
 
-    with generate_func_name_and_cleanup(client) as func_name:
+    with generate_func_name_and_cleanup(client, schema=SCHEMA) as func_name:
         create_func_info = client.create_function(sql_function_body=simple_function(func_name))
         function_info = client.get_function(func_name)
         assert create_func_info == function_info
@@ -361,7 +362,7 @@ def test_list_functions(client: DatabricksFunctionClient):
         assert isinstance(function_infos, list) and len(function_infos) == existing_function_num + 1
         assert len([f for f in function_infos if f.full_name == func_name]) == 1
 
-        with generate_func_name_and_cleanup(client) as func_name_2:
+        with generate_func_name_and_cleanup(client, schema=SCHEMA) as func_name_2:
             client.create_function(sql_function_body=simple_function(func_name_2))
             function_infos = client.list_functions(catalog=CATALOG, schema=SCHEMA, max_results=1)
             assert len(function_infos) == 1
@@ -648,7 +649,7 @@ def test_validate_param_type_errors(client: DatabricksFunctionClient):
 
 @pytest.fixture
 def good_function_info():
-    func_name = random_func_name().split(".")[-1]
+    func_name = random_func_name(schema=SCHEMA).split(".")[-1]
     return FunctionInfo(
         catalog_name=CATALOG,
         schema_name=SCHEMA,
@@ -682,7 +683,7 @@ def good_function_info():
 
 @pytest.fixture
 def bad_function_info():
-    func_name = random_func_name().split(".")[-1]
+    func_name = random_func_name(schema=SCHEMA).split(".")[-1]
     return FunctionInfo(
         catalog_name=CATALOG,
         schema_name=SCHEMA,
@@ -789,7 +790,7 @@ def test_extra_params_when_executing_function_errors(
 @requires_databricks
 def test_extra_params_when_executing_function_e2e(client: DatabricksFunctionClient, monkeypatch):
     monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "5")
-    with generate_func_name_and_cleanup(client) as func_name:
+    with generate_func_name_and_cleanup(client, schema=SCHEMA) as func_name:
         sql_body = f"""CREATE FUNCTION {func_name}()
 RETURNS STRING
 LANGUAGE PYTHON
