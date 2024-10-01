@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Dict, List
 from unittest import mock
 
@@ -26,7 +27,7 @@ from ucai.test_utils.function_utils import (
 from tests.helper_functions import mock_chat_completion_response, mock_choice
 from ucai_openai.toolkit import UCFunctionToolkit
 
-SCHEMA = "ucai_openai_test"
+SCHEMA = os.environ.get("SCHEMA", "ucai_openai_test")
 
 
 @pytest.fixture(autouse=True)

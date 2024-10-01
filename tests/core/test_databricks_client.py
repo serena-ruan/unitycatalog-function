@@ -1,5 +1,6 @@
 import base64
 import datetime
+import os
 import time
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, NamedTuple
@@ -37,7 +38,7 @@ from ucai.test_utils.function_utils import (
     random_func_name,
 )
 
-SCHEMA = "ucai_core_test"
+SCHEMA = os.environ.get("SCHEMA", "ucai_core_test")
 
 
 class FunctionInputOutput(NamedTuple):

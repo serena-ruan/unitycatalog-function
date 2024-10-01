@@ -1,4 +1,5 @@
 import json
+import os
 from unittest import mock
 
 import pytest
@@ -25,7 +26,7 @@ from ucai.test_utils.function_utils import (
 
 from ucai_llamaindex.toolkit import UCFunctionToolkit
 
-SCHEMA = "ucai_llama_index_test"
+SCHEMA = os.environ.get("SCHEMA", "ucai_llama_index_test")
 
 
 @requires_databricks
