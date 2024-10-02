@@ -1,24 +1,29 @@
+import argparse
 import sys
 
-import click
 from databricks.sdk import WorkspaceClient
 
 
-@click.command(help="Clean up functions in a schema")
-@click.option(
-    "--catalog",
-    required=True,
-    help=f"The catalog to clean up functions from",
-)
-@click.option(
-    "--schema",
-    required=True,
-    help=f"The schema to clean up functions from",
-)
-def cleanup_functions(catalog: str, schema: str):
+def parse_args():
+    parser = argparse.ArgumentParser(description="Clean up functions")
+    parser.add_argument(
+        "--catalog",
+        required=True,
+        help="The catalog to clean up functions from",
+    )
+    parser.add_argument(
+        "--schema",
+        required=True,
+        help="The schema to clean up functions from",
+    )
+    return parser.parse_args()
+
+
+def cleanup_functions(args):
+    args = parse_args(args)
     client = WorkspaceClient()
     failed_deletions = {}
-    function_infos = client.functions.list(catalog_name=catalog, schema_name=schema)
+    function_infos = client.functions.list(catalog_name=args.catalog, schema_name=args.schema)
     for function_info in function_infos:
         try:
             client.functions.delete(function_info.full_name)
@@ -31,4 +36,4 @@ def cleanup_functions(catalog: str, schema: str):
 
 
 if __name__ == "__main__":
-    cleanup_functions()
+    cleanup_functions(sys.argv[1:])
