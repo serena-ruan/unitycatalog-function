@@ -64,6 +64,10 @@ def generate_sql_function_body(func: Callable, func_comment: str, catalog: str, 
     Returns:
         str: SQL statement for creating the UDF.
     """
+    # unwrap staticmethod or classmethod for compatilibity with Python<=3.9
+    if isinstance(func, staticmethod) or isinstance(func, classmethod):
+            func = func.__func__ 
+
     func_name = func.__name__
 
     signature = inspect.signature(func)
