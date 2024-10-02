@@ -1,4 +1,5 @@
 import json
+import os
 from unittest import mock
 
 import pytest
@@ -15,16 +16,17 @@ from ucai.test_utils.client_utils import (
     USE_SERVERLESS,
     client,  # noqa: F401
     get_client,
+    requires_databricks,
     set_default_client,
 )
 from ucai.test_utils.function_utils import (
     CATALOG,
-    SCHEMA,
     create_function_and_cleanup,
 )
 
-from tests.helper_functions import requires_databricks
 from ucai_llamaindex.toolkit import UCFunctionToolkit
+
+SCHEMA = os.environ.get("SCHEMA", "ucai_llama_index_test")
 
 
 @requires_databricks
@@ -32,7 +34,7 @@ from ucai_llamaindex.toolkit import UCFunctionToolkit
 def test_toolkit_e2e(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
-    with set_default_client(client), create_function_and_cleanup(client) as func_obj:
+    with set_default_client(client), create_function_and_cleanup(client, schema=SCHEMA) as func_obj:
         toolkit = UCFunctionToolkit(
             function_names=[func_obj.full_function_name], return_direct=True
         )
@@ -58,7 +60,7 @@ def test_toolkit_e2e(use_serverless, monkeypatch):
 def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
-    with set_default_client(client), create_function_and_cleanup(client) as func_obj:
+    with set_default_client(client), create_function_and_cleanup(client, schema=SCHEMA) as func_obj:
         toolkit = UCFunctionToolkit(
             function_names=[func_obj.full_function_name], client=client, return_direct=True
         )
@@ -83,7 +85,7 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
 def test_multiple_toolkits(use_serverless, monkeypatch):
     monkeypatch.setenv(USE_SERVERLESS, str(use_serverless))
     client = get_client()
-    with set_default_client(client), create_function_and_cleanup(client) as func_obj:
+    with set_default_client(client), create_function_and_cleanup(client, schema=SCHEMA) as func_obj:
         toolkit1 = UCFunctionToolkit(function_names=[func_obj.full_function_name])
         toolkit2 = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.*"])
         tool1 = toolkit1.tools[0]

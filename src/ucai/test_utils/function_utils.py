@@ -6,22 +6,24 @@ from typing import Generator, NamedTuple, Optional
 from ucai.core.databricks import DatabricksFunctionClient
 from ucai.core.utils.function_processing_utils import get_tool_name
 
-CATALOG = "ml"
-SCHEMA = "serena_uc_test"
+CATALOG = "integration_testing"
 
 _logger = logging.getLogger(__name__)
 
 
-def random_func_name():
+def random_func_name(schema: str):
     """
     Generate a random function name in the format of `<catalog>.<schema>.<function_name>`.
+
+    Args:
+        schema: The schema name to use in the function name.
     """
-    return f"{CATALOG}.{SCHEMA}.test_{uuid.uuid4().hex[:4]}"
+    return f"{CATALOG}.{schema}.test_{uuid.uuid4().hex[:4]}"
 
 
 @contextmanager
-def generate_func_name_and_cleanup(client: DatabricksFunctionClient):
-    func_name = random_func_name()
+def generate_func_name_and_cleanup(client: DatabricksFunctionClient, schema: str):
+    func_name = random_func_name(schema)
     try:
         yield func_name
     finally:
@@ -41,10 +43,11 @@ class FunctionObj(NamedTuple):
 def create_function_and_cleanup(
     client: DatabricksFunctionClient,
     *,
+    schema: str,
     func_name: Optional[str] = None,
     sql_body: Optional[str] = None,
 ) -> Generator[FunctionObj, None, None]:
-    func_name = func_name or random_func_name()
+    func_name = func_name or random_func_name(schema=schema)
     comment = "Executes Python code and returns its stdout."
     sql_body = (
         sql_body
