@@ -26,7 +26,7 @@ def cleanup_function(catalog: str, schema: str):
             failed_deletions.append(function_info.full_name)
 
     if failed_deletions:
-        print(f"Failed to delete the following functions: {failed_deletions}")  # noqa: T201
+        sys.stderr.write(f"Failed to delete the following functions: {failed_deletions}")
         sys.exit(1)
 
 
