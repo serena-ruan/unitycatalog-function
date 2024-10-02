@@ -296,7 +296,7 @@ def test_function_with_try_except():
 try:
     return a + b
 except Exception as e:
-    raise ValueError(f"Invalid operation: {e}")
+    raise ValueError(f"Invalid operation") from e
     $$;
     """
     assert sql_body.strip() == expected_sql.strip()

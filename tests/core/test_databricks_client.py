@@ -987,7 +987,6 @@ def test_create_and_execute_python_function(client: DatabricksFunctionClient):
         result = client.execute_function(func_name, {"x": 10})
         assert result.value == "10"
 
-@requires_databricks
 def test_create_python_function_with_invalid_arguments(client: DatabricksFunctionClient):
     def invalid_func(self, x: int) -> str:
         """Function with 'self' in the argument."""
@@ -995,7 +994,7 @@ def test_create_python_function_with_invalid_arguments(client: DatabricksFunctio
 
     func_comment = "A Python function that incorrectly uses 'self' in the signature"
 
-    with pytest.raises(ValueError, match="The argument 'self' is not allowed in a UDF."):
+    with pytest.raises(RuntimeError, match="Failed to generate SQL function body for invalid_func"):
         client.create_python_function(
             func=invalid_func,
             func_comment=func_comment,
@@ -1009,7 +1008,7 @@ def test_create_python_function_with_invalid_arguments(client: DatabricksFunctio
 
     func_comment = "A Python function that incorrectly uses 'cls' in the signature"
 
-    with pytest.raises(ValueError, match="The argument 'cls' is not allowed in a UDF."):
+    with pytest.raises(RuntimeError, match="Failed to generate SQL function body for another_invalid_func"):
         client.create_python_function(
             func=another_invalid_func,
             func_comment=func_comment,
@@ -1067,7 +1066,6 @@ def test_create_python_function_with_docstring_comments(client: DatabricksFuncti
         result = client.execute_function(func_name, {"a": 5, "b": 3})
         assert result.value == "8"
 
-@requires_databricks
 def test_create_python_function_missing_return_type(client: DatabricksFunctionClient):
     def missing_return_type_func(a: int, b: int):
         """A function that lacks a return type."""
@@ -1075,7 +1073,7 @@ def test_create_python_function_missing_return_type(client: DatabricksFunctionCl
 
     func_comment = "A Python function missing a return type hint"
 
-    with pytest.raises(ValueError, match="Return type for function 'missing_return_type_func' is not defined"):
+    with pytest.raises(RuntimeError, match="Failed to generate SQL function body for missing_return_type_func"):
         client.create_python_function(
             func=missing_return_type_func,
             func_comment=func_comment,
@@ -1083,3 +1081,13 @@ def test_create_python_function_missing_return_type(client: DatabricksFunctionCl
             schema=SCHEMA
         )
 
+def test_create_python_function_not_callable(client: DatabricksFunctionClient):
+    scalar = 42
+
+    with pytest.raises(ValueError, match="The provided function is not callable"):
+        client.create_python_function(
+            func=scalar,
+            func_comment="A non-callable object",
+            catalog=CATALOG,
+            schema=SCHEMA
+        )
