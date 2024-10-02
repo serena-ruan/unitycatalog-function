@@ -8,12 +8,13 @@ import time
 from dataclasses import dataclass
 from decimal import Decimal
 from io import StringIO
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set
 
 from typing_extensions import override
 
 from ucai.core.client import BaseFunctionClient, FunctionExecutionResult
 from ucai.core.paged_list import PagedList
+from ucai.core.utils.callable_utils import generate_sql_function_body
 from ucai.core.utils.type_utils import (
     column_type_to_python_type,
     convert_timedelta_to_interval_str,
@@ -210,6 +211,34 @@ class DatabricksFunctionClient(BaseFunctionClient):
             raise NotImplementedError("Creating function using function_info is not supported yet.")
             return self.client.functions.create(function_info)
         raise ValueError("Either function_info or sql_function_body should be provided.")
+
+    @override
+    def create_python_function(self, *, func: Callable, func_comment: str, catalog: str, schema: str) -> "FunctionInfo":
+        """
+        Create a UC function from a Python function.
+
+        Args:
+            func: The Python callable function to convert into a UDF.
+            func_comment: A short description for the function.
+            catalog: The catalog name.
+            schema: The schema name.
+
+        Returns:
+            FunctionInfo: The created function info.
+        """
+        if not callable(func):
+            raise ValueError("The provided function is not callable.")
+
+        try:
+            sql_function_body = generate_sql_function_body(func, func_comment, catalog, schema)
+        except Exception as e:
+            raise RuntimeError(f"Failed to generate SQL function body for {func.__name__}") from e
+
+        try:
+            return self.create_function(sql_function_body=sql_function_body)
+        except Exception as e:
+            raise RuntimeError(f"Failed to create function for {func.__name__}") from e
+
 
     @override
     def get_function(self, function_name: str, **kwargs: Any) -> "FunctionInfo":

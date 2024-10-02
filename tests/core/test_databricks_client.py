@@ -45,6 +45,12 @@ class FunctionInputOutput(NamedTuple):
     output: str
 
 
+class PythonFunctionInputOutput(NamedTuple):
+    func: Callable
+    inputs: List[Dict[str, Any]]
+    output: str
+
+
 def function_with_struct_input(func_name: str) -> FunctionInputOutput:
     sql_body = f"""CREATE OR REPLACE FUNCTION {func_name}(s STRUCT<a: SHORT NOT NULL COMMENT 'short field', b: MAP<STRING, FLOAT>, c: INT NOT NULL>)
 RETURNS STRING
@@ -218,6 +224,124 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
         output="day_of_week,day\n1,2024-01-01\n2,2024-01-02\n3,2024-01-03\n4,2024-01-04\n5,2024-01-05\n",
     )
 
+def python_function_with_struct_input() -> PythonFunctionInputOutput:
+    def func(s: dict) -> str:
+        result = str(s['a']) + ";"
+        if s['b']:
+            result += ",".join([str(k) + "=>" + str(v) for k, v in s['b'].items()])
+        result += ";" + str(s['c'])
+        return result
+
+    return PythonFunctionInputOutput(
+        func=func,
+        inputs=[{"s": {"a": 1, "b": {"2": 2, "3.0": 3.0}, "c": 4}}],
+        output="1;2=>2.0,3.0=>3.0;4",
+    )
+
+
+def python_function_with_array_input() -> PythonFunctionInputOutput:
+    def func(s: List[int]) -> str:
+        return ",".join(str(i) for i in s)
+
+    return PythonFunctionInputOutput(
+        func=func,
+        inputs=[{"s": [1, 2, 3]}],
+        output="1,2,3",
+    )
+
+
+def python_function_with_string_input() -> PythonFunctionInputOutput:
+    def func(s: str) -> str:
+        return s
+
+    return PythonFunctionInputOutput(
+        func=func,
+        inputs=[{"s": "abc"}],
+        output="abc",
+    )
+
+
+def python_function_with_binary_input() -> PythonFunctionInputOutput:
+    def func(s: bytes) -> str:
+        return s.decode('utf-8')
+
+    return PythonFunctionInputOutput(
+        func=func,
+        inputs=[
+            {"s": base64.b64encode(b"Hello").decode("utf-8")},
+            {"s": "SGVsbG8="},
+            {"s": b"Hello"},
+        ],
+        output="Hello",
+    )
+
+
+def python_function_with_interval_input() -> PythonFunctionInputOutput:
+    def func(s: datetime.timedelta) -> str:
+        return (datetime.datetime(2024, 8, 19) - s).isoformat()
+
+    return PythonFunctionInputOutput(
+        func=func,
+        inputs=[
+            {"s": datetime.timedelta(days=0, hours=0, minutes=16, seconds=40, microseconds=123456)},
+            {"s": datetime.timedelta(days=0, seconds=1000, microseconds=123456)},
+        ],
+        output="2024-08-18T23:43:19.876544",
+    )
+
+
+def python_function_with_timestamp_input() -> PythonFunctionInputOutput:
+    def func(x: datetime.datetime, y: datetime.datetime) -> str:
+        return str(x.isoformat()) + "; " + str(y.isoformat())
+
+    return PythonFunctionInputOutput(
+        func=func,
+        inputs=[
+            {
+                "x": datetime.datetime(2024, 8, 19, 11, 2, 3),
+                "y": datetime.datetime(2024, 8, 19, 11, 2, 3),
+            },
+            {"x": "2024-08-19T11:02:03", "y": "2024-08-19T11:02:03"},
+        ],
+        output="2024-08-19T11:02:03+00:00; 2024-08-19T11:02:03",
+    )
+
+
+def python_function_with_date_input() -> PythonFunctionInputOutput:
+    def func(s: datetime.date) -> str:
+        return s.isoformat()
+
+    return PythonFunctionInputOutput(
+        func=func,
+        inputs=[{"s": datetime.date(2024, 8, 19)}, {"s": "2024-08-19"}],
+        output="2024-08-19",
+    )
+
+
+def python_function_with_map_input() -> PythonFunctionInputOutput:
+    def func(s: dict) -> str:
+        result = []
+        for x, y in s.items():
+            result.append(str(x) + " => " + str(y))
+        return ",".join(result)
+
+    return PythonFunctionInputOutput(
+        func=func,
+        inputs=[{"s": {"a": [1, 2, 3], "b": [4, 5, 6]}}],
+        output="a => [1, 2, 3],b => [4, 5, 6]",
+    )
+
+
+def python_function_with_decimal_input() -> PythonFunctionInputOutput:
+    def func(s: Decimal) -> str:
+        return str(s)
+
+    return PythonFunctionInputOutput(
+        func=func,
+        inputs=[{"s": Decimal("123.45")}],
+        output="123.45",
+    )
+
 
 @requires_databricks
 @pytest.mark.parametrize(
@@ -271,6 +395,37 @@ def test_create_and_execute_function_using_serverless(
         serverless_client.create_function(sql_function_body=function_sample.sql_body)
         for input_example in function_sample.inputs:
             result = serverless_client.execute_function(func_name, input_example)
+            assert result.value == function_sample.output
+
+
+@requires_databricks
+@pytest.mark.parametrize(
+    "create_function",
+    [
+        python_function_with_struct_input,
+        python_function_with_array_input,
+        python_function_with_string_input,
+        python_function_with_binary_input,
+        python_function_with_interval_input,
+        python_function_with_timestamp_input,
+        python_function_with_date_input,
+        python_function_with_map_input,
+        python_function_with_decimal_input,
+    ],
+)
+def test_create_and_execute_python_function(
+    client: DatabricksFunctionClient, create_function: Callable[[], PythonFunctionInputOutput]
+):
+    function_sample = create_function()
+    with generate_func_name_and_cleanup(client) as func_name:
+        client.create_python_function(
+            func=function_sample.func,
+            func_comment="Test Python function",
+            catalog=CATALOG,
+            schema=SCHEMA
+        )
+        for input_example in function_sample.inputs:
+            result = client.execute_function(func_name, input_example)
             assert result.value == function_sample.output
 
 
@@ -811,3 +966,120 @@ $$
         time_total2 = time.time() - time2
         # 30s - 10s = 20s, the time difference should be around 20s
         assert abs(abs(time_total2 - time_total1) - 20) < 5
+
+
+@requires_databricks
+def test_create_and_execute_python_function(client: DatabricksFunctionClient):
+    def simple_func(x: int) -> str:
+        """Test function that returns the string version of x."""
+        return str(x)
+
+    func_comment = "A simple Python function that returns the string version of an integer"
+    
+    with generate_func_name_and_cleanup(client) as func_name:
+        client.create_python_function(
+            func=simple_func,
+            func_comment=func_comment,
+            catalog=CATALOG,
+            schema=SCHEMA
+        )
+
+        result = client.execute_function(func_name, {"x": 10})
+        assert result.value == "10"
+
+@requires_databricks
+def test_create_python_function_with_invalid_arguments(client: DatabricksFunctionClient):
+    def invalid_func(self, x: int) -> str:
+        """Function with 'self' in the argument."""
+        return str(x)
+
+    func_comment = "A Python function that incorrectly uses 'self' in the signature"
+
+    with pytest.raises(ValueError, match="The argument 'self' is not allowed in a UDF."):
+        client.create_python_function(
+            func=invalid_func,
+            func_comment=func_comment,
+            catalog=CATALOG,
+            schema=SCHEMA
+        )
+
+    def another_invalid_func(cls, x: int) -> str:
+        """Function with 'cls' in the argument."""
+        return str(x)
+
+    func_comment = "A Python function that incorrectly uses 'cls' in the signature"
+
+    with pytest.raises(ValueError, match="The argument 'cls' is not allowed in a UDF."):
+        client.create_python_function(
+            func=another_invalid_func,
+            func_comment=func_comment,
+            catalog=CATALOG,
+            schema=SCHEMA
+        )
+
+@requires_databricks
+def test_create_python_function_with_complex_body(client: DatabricksFunctionClient):
+    def complex_func(a: int, b: int) -> int:
+        """A complex function that uses a try-except block and returns the sum."""
+        try:
+            return a + b
+        except Exception as e:
+            raise ValueError(f"Failed to add numbers") from e
+
+    func_comment = "A complex Python function with try-except logic"
+
+    with generate_func_name_and_cleanup(client) as func_name:
+        client.create_python_function(
+            func=complex_func,
+            func_comment=func_comment,
+            catalog=CATALOG,
+            schema=SCHEMA
+        )
+
+        result = client.execute_function(func_name, {"a": 1, "b": 2})
+        assert result.value == "3"
+
+@requires_databricks
+def test_create_python_function_with_docstring_comments(client: DatabricksFunctionClient):
+    def documented_func(a: int, b: int) -> int:
+        """
+        Adds two integers.
+
+        Args:
+            a: The first integer.
+            b: The second integer.
+
+        Returns:
+            int: The sum of a and b.
+        """
+        return a + b
+
+    func_comment = "A Python function with detailed docstring"
+
+    with generate_func_name_and_cleanup(client) as func_name:
+        client.create_python_function(
+            func=documented_func,
+            func_comment=func_comment,
+            catalog=CATALOG,
+            schema=SCHEMA
+        )
+
+        result = client.execute_function(func_name, {"a": 5, "b": 3})
+        assert result.value == "8"
+
+@requires_databricks
+def test_create_python_function_missing_return_type(client: DatabricksFunctionClient):
+    def missing_return_type_func(a: int, b: int):
+        """A function that lacks a return type."""
+        return a + b
+
+    func_comment = "A Python function missing a return type hint"
+
+    with pytest.raises(ValueError, match="Return type for function 'missing_return_type_func' is not defined"):
+        client.create_python_function(
+            func=missing_return_type_func,
+            func_comment=func_comment,
+            catalog=CATALOG,
+            schema=SCHEMA
+        )
+

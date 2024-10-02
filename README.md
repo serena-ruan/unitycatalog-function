@@ -60,6 +60,41 @@ $$
 function_info = client.create_function(sql_function_body=sql_body)
 ```
 
+#### Create a UC python function
+
+The client offers an API that simplifies the process of directly creating a python function to be registered as a UC function.
+
+To get the optimal results for GenAI tool definitions, it is highly recommended to:
+
+- Provide a full Python docstring in Google docstring format to your function definition. This API extracts the information about arguments so that GenAI tools
+will have additional context about the tool's capabilities.
+- Ensure that the description of the function is as descriptive as possible to prevent a tool use call that infers capabilities of the tool purely based on the
+function's name.
+- Use a clear and descriptive naming convention for the function to aid in identification within Unity Catalog as well as for GenAI systems to understand
+additional context about a configured tool within an agentic application.
+- Use type hints. Failure to provide them will cause an exception to be raised.
+
+```python
+# Example function
+def add_numbers_together(a: int, b: int) -> int:
+  """
+  Utility for adding two integers together
+
+  Args:
+    a: An integer that will have an additional integer added to it.
+    b: An integer that will be added to the 'a' argument.
+  
+  Returns:
+    int: The resulting sum of the arguments a + b
+  """
+  return a + b
+
+# Ensure that you fully explain what the function does and how it can be used.
+function_description = "A function that accepts to integers, sums them, and returns the sum result as an integer."
+
+function_info = client.create_python_function(func=add_numbers_together, func_comment=function_description, catalog=CATALOG, schema=SCHEMA)
+```
+
 #### Retrieve a UC function
 
 The client also provides API to get the UC function information details. Note that the function name passed in must be the full name in the format of `<catalog>.<schema>.<function_name>`.
@@ -88,4 +123,4 @@ assert result.value == "some_string"
 
 #### Reminders
 
-- If the function contains `DECIMAL` type parameter, it is converted to python `float` for execution, and this conversion may lose precision.
+- If the function contains a `DECIMAL` type parameter, it is converted to python `float` for execution, and this conversion may lose precision.

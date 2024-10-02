@@ -44,6 +44,10 @@ class BaseFunctionClient(ABC):
         """Create a function"""
 
     @abstractmethod
+    def create_python_function(self, *args: Any, **kwargs: Any) -> Any:
+        """Create a Python function"""
+
+    @abstractmethod
     def get_function(self, function_name: str, **kwargs: Any) -> Any:
         """
         Get a function by its name.

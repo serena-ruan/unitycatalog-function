@@ -1,6 +1,18 @@
 import datetime
 import decimal
-from typing import Any
+from typing import Any, get_origin
+
+PYTHON_TO_SQL_TYPE_MAPPING = {
+    int: "INTEGER",
+    float: "DOUBLE",
+    str: "STRING",
+    bool: "BOOLEAN",
+    datetime.date: "DATE",
+    datetime.datetime: "TIMESTAMP",
+    decimal.Decimal: "DECIMAL",
+    list: "ARRAY",
+    dict: "MAP",
+}
 
 SQL_TYPE_TO_PYTHON_TYPE_MAPPING = {
     # numpy array is not accepted, it's not json serializable
@@ -86,3 +98,17 @@ def convert_timedelta_to_interval_str(time_val: datetime.timedelta) -> str:
     minutes, seconds = divmod(remainder, 60)
     microseconds = time_val.microseconds
     return f"INTERVAL '{days} {hours}:{minutes}:{seconds}.{microseconds}' DAY TO SECOND"
+
+
+def python_type_to_sql_type(py_type):
+    """Convert Python type to Unity Catalog SQL type."""
+    origin = get_origin(py_type)
+    if origin is dict:
+        return "MAP"
+    elif origin is list:
+        return "ARRAY"
+    elif origin is None and py_type in PYTHON_TO_SQL_TYPE_MAPPING:
+        return PYTHON_TO_SQL_TYPE_MAPPING[py_type]
+    else:
+        raise ValueError(f"Unsupported Python type: {py_type}")
+
