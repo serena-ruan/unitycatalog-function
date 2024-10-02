@@ -4,7 +4,7 @@ import sys
 from databricks.sdk import WorkspaceClient
 
 
-def parse_args():
+def parse_args(args):
     parser = argparse.ArgumentParser(description="Clean up functions")
     parser.add_argument(
         "--catalog",
@@ -16,7 +16,7 @@ def parse_args():
         required=True,
         help="The schema to clean up functions from",
     )
-    return parser.parse_args()
+    return parser.parse_args(args)
 
 
 def cleanup_functions(args):
