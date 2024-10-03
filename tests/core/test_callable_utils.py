@@ -457,3 +457,64 @@ def test_function_with_cls():
     
     with pytest.raises(ValueError, match="Parameter 'cls' is not allowed in the function signature"):
         generate_sql_function_body(func_with_cls, "Function with cls", "test_catalog", "test_schema")
+
+def test_function_with_google_docstring():
+    def my_function(a: int, b: str) -> float:
+        """
+        This function adds the length of a string to an integer.
+
+        Args:
+            a (int): The integer to add to.
+            b (str): The string to get the length of.
+
+        Returns:
+            float: The sum of the integer and the length of the string.
+        """
+        return a + len(b)
+
+    sql_body = generate_sql_function_body(my_function, "Google-style docstring example", "test_catalog", "test_schema")
+
+    expected_sql = """
+    CREATE OR REPLACE FUNCTION test_catalog.test_schema.my_function(a INTEGER COMMENT 'The integer to add to.', b STRING COMMENT 'The string to get the length of.')
+    RETURNS DOUBLE
+    LANGUAGE PYTHON
+    COMMENT 'Google-style docstring example'
+    AS $$
+return a + len(b)
+    $$;
+    """
+    assert sql_body.strip() == expected_sql.strip()
+
+
+def test_function_with_multiline_argument_description():
+    def my_multiline_arg_function(
+        a: int, 
+        b: str
+    ) -> str:
+        """
+        This function has a multi-line argument list.
+
+        Args:
+            a: The first argument, which is an integer.
+               The integer is guaranteed to be positive.
+            b: The second argument, which is a string.
+               The string should be more than 100 characters long.
+
+        Returns:
+            str: A string that concatenates the integer and string.
+        """
+        return f"{a}-{b}"
+
+    sql_body = generate_sql_function_body(my_multiline_arg_function, "Multiline arg description example", "test_catalog", "test_schema")
+    
+    expected_sql = """
+    CREATE OR REPLACE FUNCTION test_catalog.test_schema.my_multiline_arg_function(a INTEGER COMMENT 'The first argument, which is an integer. The integer is guaranteed to be positive.', b STRING COMMENT 'The second argument, which is a string. The string should be more than 100 characters long.')
+    RETURNS STRING
+    LANGUAGE PYTHON
+    COMMENT 'Multiline arg description example'
+    AS $$
+return f"{a}-{b}"
+    $$;
+    """
+    assert sql_body.strip() == expected_sql.strip()
+

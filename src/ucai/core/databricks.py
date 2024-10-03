@@ -215,17 +215,113 @@ class DatabricksFunctionClient(BaseFunctionClient):
     @override
     def create_python_function(self, *, func: Callable, func_comment: str, catalog: str, schema: str) -> "FunctionInfo":
         """
-        Create a UC function from a Python function.
+        Create a Unity Catalog (UC) function directly from a Python function.
+
+        This API allows you to convert a Python function into a Unity Catalog User-Defined Function (UDF). 
+        It automates the creation of UC functions while ensuring that the Python function meets certain 
+        criteria and adheres to best practices.
+
+        **Requirements:**
+
+        1. **Type Annotations**:
+            - The Python function must use argument and return type annotations. These annotations are used 
+            to generate the SQL signature of the UC function.
+            - Supported Python types and their corresponding UC types are as follows:
+            
+            | Python Type         | Unity Catalog Type |
+            |---------------------|--------------------|
+            | `int`               | `INTEGER`          |
+            | `float`             | `DOUBLE`           |
+            | `str`               | `STRING`           |
+            | `bool`              | `BOOLEAN`          |
+            | `Decimal`           | `DECIMAL`          |
+            | `datetime.date`     | `DATE`             |
+            | `datetime.datetime` | `TIMESTAMP`        |
+            | `list`              | `ARRAY`            |
+            | `dict`              | `MAP`              |
+
+            - **Example of a valid function**:
+            ```python
+            def my_function(a: int, b: str) -> float:
+                return a + len(b)
+            ```
+            
+            - **Invalid function (missing type annotations)**:
+            ```python
+            def my_function(a, b):
+                return a + len(b)
+            ```
+            Attempting to create a UC function from a function without type hints will raise an error, as the 
+            system relies on type hints to generate the UC function's signature.
+
+        2. **Google Docstring Guidelines**:
+            - It is recommended to include detailed Python docstrings in your function to provide additional context.
+            The docstrings will be used to auto-generate parameter descriptions and a function-level comment.
+            - Only **Google-style docstrings** are supported for this auto-generation. For example:
+            ```python
+            def my_function(a: int, b: str) -> float:
+                \"\"\"
+                Adds the length of a string to an integer.
+                
+                Args:
+                    a (int): The integer to add to.
+                    b (str): The string whose length will be added.
+
+                Returns:
+                    float: The sum of the integer and the string length.
+                \"\"\"
+                return a + len(b)
+            ```
+            - If docstrings do not conform to Google-style, parameter descriptions will default to `"Parameter <name>"`, 
+            and no further information will be provided in the function comment.
+
+            For examples of Google docstring guidelines, see
+            [this link](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html)
+
+        3. **External Dependencies**:
+            - Unity Catalog UDFs are limited to Python standard libraries and Databricks-provided libraries. If your 
+            function relies on unsupported external dependencies, the created UC function may fail at runtime.
+            - It is strongly recommended to test the created function by executing it before integrating it into 
+            GenAI or other tools.
+
+        **Function Metadata**:
+        - You can provide an overall description of the function through the `func_comment` parameter.
+        - Docstrings (if provided and Google-style) will automatically be included as detailed descriptions for 
+        function parameters, enhancing the discoverability of your UC function.
+
+        **Example**:
+        ```python
+        def example_function(x: int, y: int) -> float:
+            \"\"\"
+            Multiplies an integer by the length of a string.
+            
+            Args:
+                x (int): The number to be multiplied.
+                y (int): A string whose length will be used for multiplication.
+            
+            Returns:
+                float: The product of the integer and the string length.
+            \"\"\"
+            return x * len(y)
+
+        client.create_python_function(
+            func=example_function,
+            func_comment="An example function that multiplies an integer by the string length.",
+            catalog="my_catalog",
+            schema="my_schema"
+        )
+        ```
 
         Args:
-            func: The Python callable function to convert into a UDF.
-            func_comment: A short description for the function.
-            catalog: The catalog name.
-            schema: The schema name.
+            func (Callable): The Python function to convert into a UDF.
+            func_comment (str): A brief description of the function.
+            catalog (str): The catalog name in which to create the function.
+            schema (str): The schema name in which to create the function.
 
         Returns:
-            FunctionInfo: The created function info.
+            FunctionInfo: Metadata about the created function, including its name and signature.
         """
+
         if not callable(func):
             raise ValueError("The provided function is not callable.")
 

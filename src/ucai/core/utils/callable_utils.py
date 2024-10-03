@@ -29,16 +29,28 @@ def extract_function_body(func: Callable) -> str:
 def parse_docstring(docstring: str) -> dict:
     """Parses the docstring to extract comments for parameters, return value, and exceptions raised."""
     parsed_comments = {}
-    
+    current_param = None
+    description_lines = []
+
     if "Args:" in docstring:
         args_part = docstring.split("Args:")[1].strip().split("Returns:")[0].split("Raises:")[0].strip()
         for line in args_part.splitlines():
             if line.strip() and ":" in line:
-                param, comment = line.split(":", 1)
-                parsed_comments[param.strip()] = comment.strip()
+                if current_param and description_lines:
+                    parsed_comments[current_param] = " ".join(description_lines).strip()
+                
+                param_part, comment_part = line.split(":", 1)
+                param = param_part.split("(")[0].strip()
+                current_param = param
+                description_lines = [comment_part.strip()]
+            elif current_param:
+                description_lines.append(line.strip())
+        
+        if current_param and description_lines:
+            parsed_comments[current_param] = " ".join(description_lines).strip()
 
     if "Returns:" in docstring:
-        return_part = docstring.split("Returns:")[1].strip().split("Raises:")[0].strip().split("\n")[0].strip()
+        return_part = docstring.split("Returns:")[1].strip().split("Raises:")[0].strip()
         parsed_comments['return'] = return_part
 
     if "Raises:" in docstring:
@@ -46,6 +58,8 @@ def parse_docstring(docstring: str) -> dict:
         parsed_comments['raises'] = raises_part
 
     return parsed_comments
+
+
 
 def parse_dedented_source(func: Callable) -> tuple:
     """Extracts and dedents the source code of a function."""
