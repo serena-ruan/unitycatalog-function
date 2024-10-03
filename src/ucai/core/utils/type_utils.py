@@ -1,6 +1,6 @@
 import datetime
 import decimal
-from typing import Any, get_origin
+from typing import Any, get_args, get_origin
 
 PYTHON_TO_SQL_TYPE_MAPPING = {
     int: "INTEGER",
@@ -11,6 +11,7 @@ PYTHON_TO_SQL_TYPE_MAPPING = {
     datetime.datetime: "TIMESTAMP",
     decimal.Decimal: "DECIMAL",
     list: "ARRAY",
+    tuple: "ARRAY",
     dict: "MAP",
 }
 
@@ -100,15 +101,34 @@ def convert_timedelta_to_interval_str(time_val: datetime.timedelta) -> str:
     return f"INTERVAL '{days} {hours}:{minutes}:{seconds}.{microseconds}' DAY TO SECOND"
 
 
-def python_type_to_sql_type(py_type):
-    """Convert Python type to Unity Catalog SQL type."""
+def python_type_to_sql_type(py_type: Any) -> str:
+    """
+    Convert a Python type to its SQL equivalent. Handles nested types (e.g., List[Dict[str, int]]) 
+    by recursively mapping the inner types using PYTHON_TO_SQL_TYPE_MAPPING.
+    Args:
+        py_type: The Python type to be converted (e.g., List[int], Dict[str, List[int]]).
+    Returns:
+        str: The corresponding SQL type (e.g., ARRAY<MAP<STRING, INTEGER>>).
+    Raises:
+        ValueError: If the type cannot be mapped to a SQL type.
+    """
+    # Handle generic types (e.g., List, Dict)
     origin = get_origin(py_type)
     if origin is dict:
-        return "MAP"
-    elif origin is list:
-        return "ARRAY"
-    elif origin is None and py_type in PYTHON_TO_SQL_TYPE_MAPPING:
+        # Get key and value types for Dict
+        key_type, value_type = get_args(py_type)
+        key_sql_type = python_type_to_sql_type(key_type)
+        value_sql_type = python_type_to_sql_type(value_type)
+        return f"MAP<{key_sql_type}, {value_sql_type}>"
+    
+    elif origin in (list, tuple):
+        # Get element type for List or Tuple (only one type should be allowed)
+        element_type, = get_args(py_type)
+        element_sql_type = python_type_to_sql_type(element_type)
+        return f"ARRAY<{element_sql_type}>"
+    
+    # Handle base types (non-generic)
+    if py_type in PYTHON_TO_SQL_TYPE_MAPPING:
         return PYTHON_TO_SQL_TYPE_MAPPING[py_type]
-    else:
-        raise ValueError(f"Unsupported Python type: {py_type}")
-
+    
+    raise ValueError(f"Unsupported Python type: {py_type}")

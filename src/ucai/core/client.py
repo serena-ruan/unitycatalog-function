@@ -4,7 +4,7 @@ import threading
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Callable, Dict, Literal, Optional
 
 from ucai.core.paged_list import PagedList
 
@@ -44,7 +44,7 @@ class BaseFunctionClient(ABC):
         """Create a function"""
 
     @abstractmethod
-    def create_python_function(self, *args: Any, **kwargs: Any) -> Any:
+    def create_python_function(self, *, func: Callable[..., Any], func_comment: str, catalog: str, schema: str) -> Any:
         """Create a Python function"""
 
     @abstractmethod

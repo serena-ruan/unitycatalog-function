@@ -2,7 +2,7 @@ import base64
 import datetime
 import time
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, NamedTuple
+from typing import Any, Callable, Dict, List, NamedTuple, Union
 from unittest import mock
 
 import pytest
@@ -319,7 +319,7 @@ def python_function_with_date_input() -> PythonFunctionInputOutput:
 
 
 def python_function_with_map_input() -> PythonFunctionInputOutput:
-    def func(s: dict) -> str:
+    def func(s: Dict[str, List[int]]) -> str:
         result = []
         for x, y in s.items():
             result.append(str(x) + " => " + str(y))
@@ -1088,6 +1088,105 @@ def test_create_python_function_not_callable(client: DatabricksFunctionClient):
         client.create_python_function(
             func=scalar,
             func_comment="A non-callable object",
+            catalog=CATALOG,
+            schema=SCHEMA
+        )
+
+@requires_databricks
+def test_function_with_list_of_int_return(client: DatabricksFunctionClient):
+    def func_returning_list(a: int) -> List[int]:
+        """
+        A function that returns a list of integers.
+
+        Args:
+            a: An integer to generate the list.
+
+        Returns:
+            List[int]: A list of integers from 0 to a.
+        """
+        return list(range(a))
+
+    func_comment = "A Python function returning a list of integers"
+
+    with generate_func_name_and_cleanup(client) as func_name:
+        client.create_python_function(
+            func=func_returning_list,
+            func_comment=func_comment,
+            catalog=CATALOG,
+            schema=SCHEMA
+        )
+
+        result = client.execute_function(func_name, {"a": 3})
+        assert result.value == "0,1,2"
+
+@requires_databricks
+def test_function_with_dict_of_string_to_int_return(client: DatabricksFunctionClient):
+    def func_returning_map(a: int) -> Dict[str, int]:
+        """
+        A function that returns a map from string to integer.
+
+        Args:
+            a: The integer to use in generating the map.
+
+        Returns:
+            Dict[str, int]: A map of string keys to integer values.
+        """
+        return {f"key_{i}": i for i in range(a)}
+
+    func_comment = "A Python function returning a map from string to int"
+
+    with generate_func_name_and_cleanup(client) as func_name:
+        client.create_python_function(
+            func=func_returning_map,
+            func_comment=func_comment,
+            catalog=CATALOG,
+            schema=SCHEMA
+        )
+
+        result = client.execute_function(func_name, {"a": 3})
+        assert result.value == "key_0 => 0,key_1 => 1,key_2 => 2"
+
+def test_function_with_invalid_list_return_type(client: DatabricksFunctionClient):
+    def func_with_invalid_list_return(a: int) -> List:
+        """A function returning a list without specifying the element type."""
+        return list(range(a))
+
+    func_comment = "A Python function with invalid list return type"
+
+    with pytest.raises(RuntimeError, match="Failed to generate SQL function body for func_with_invalid_list_return"):
+        client.create_python_function(
+            func=func_with_invalid_list_return,
+            func_comment=func_comment,
+            catalog=CATALOG,
+            schema=SCHEMA
+        )
+
+def test_function_with_invalid_dict_return_type(client: DatabricksFunctionClient):
+    def func_with_invalid_dict_return(a: int) -> Dict:
+        """A function returning a dict without specifying key and value types."""
+        return {f"key_{i}": i for i in range(a)}
+
+    func_comment = "A Python function with invalid dict return type"
+
+    with pytest.raises(RuntimeError, match="Failed to generate SQL function body for func_with_invalid_dict_return"):
+        client.create_python_function(
+            func=func_with_invalid_dict_return,
+            func_comment=func_comment,
+            catalog=CATALOG,
+            schema=SCHEMA
+        )
+
+def test_function_with_union_return_type(client: DatabricksFunctionClient):
+    def func_with_union_return(a: int) -> Union[str, int]:
+        """A function returning a union type."""
+        return a if a % 2 == 0 else str(a)
+
+    func_comment = "A Python function returning a union of str and int"
+
+    with pytest.raises(RuntimeError, match="Failed to generate SQL function body for func_with_union_return"):
+        client.create_python_function(
+            func=func_with_union_return,
+            func_comment=func_comment,
             catalog=CATALOG,
             schema=SCHEMA
         )

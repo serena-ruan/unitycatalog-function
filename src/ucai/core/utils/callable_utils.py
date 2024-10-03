@@ -1,13 +1,13 @@
 import ast
 import inspect
 from textwrap import dedent
-from typing import Callable, get_type_hints
+from typing import Any, Callable, get_type_hints
 
 from ucai.core.utils.type_utils import python_type_to_sql_type
 
 FORBIDDEN_PARAMS = ['self', 'cls']
 
-def extract_function_body(func: Callable) -> str:
+def extract_function_body(func: Callable[..., Any]) -> str:
     """Extracts the body of a function as a string without the signature or docstring, preserving indentation."""
     parsed_source, source_lines = parse_dedented_source(func)
     
@@ -61,13 +61,44 @@ def parse_docstring(docstring: str) -> dict:
 
 
 
-def parse_dedented_source(func: Callable) -> tuple:
+def parse_dedented_source(func: Callable[..., Any]) -> tuple:
     """Extracts and dedents the source code of a function."""
     full_source = inspect.getsource(func)
     dedented_source = dedent(full_source)
     return ast.parse(dedented_source), full_source.splitlines()
 
-def generate_sql_function_body(func: Callable, func_comment: str, catalog: str, schema: str) -> str:
+
+def validate_container_type(hint: Any) -> str:
+    """Validate and extract the SQL representation of nested types for List and Dict."""
+    if hasattr(hint, '__origin__'):
+        origin = hint.__origin__
+        args = hint.__args__
+
+        if origin == list:
+            if len(args) != 1:
+                raise ValueError(f"Invalid type hint for array, expected one internal type, got {args}.")
+            inner_type = python_type_to_sql_type(args[0])
+            return f"ARRAY<{inner_type}>"
+
+        elif origin == dict:
+            if len(args) != 2:
+                raise ValueError(f"Invalid type hint for map, expected two internal types, got {args}.")
+            key_type = python_type_to_sql_type(args[0])
+            value_type = python_type_to_sql_type(args[1])
+            return f"MAP<{key_type}, {value_type}>"
+
+    raise ValueError(f"Unsupported or invalid container type: {hint}.")
+
+
+def validate_type_hint(hint: Any) -> str:
+    """Validates and returns the SQL type for a given type hint."""
+    if isinstance(hint, type):
+        return python_type_to_sql_type(hint)
+    else:
+        return validate_container_type(hint)
+
+
+def generate_sql_function_body(func: Callable[..., Any], func_comment: str, catalog: str, schema: str) -> str:
     """
     Generate SQL body for creating the function in Unity Catalog.
     Args:
@@ -89,7 +120,13 @@ def generate_sql_function_body(func: Callable, func_comment: str, catalog: str, 
 
     if 'return' not in type_hints:
         raise ValueError(f"Return type for function '{func_name}' is not defined. Please provide a return type.")
-    return_type = type_hints.get('return')
+    
+    return_type_hint = type_hints.get('return')
+
+    try:
+        sql_return_type = validate_type_hint(return_type_hint)
+    except ValueError as e:
+        raise ValueError(f"Error in return type: {return_type_hint} is not supported.") from e
 
     docstring = inspect.getdoc(func) or ""
     docstring_comments = parse_docstring(docstring)
@@ -98,14 +135,20 @@ def generate_sql_function_body(func: Callable, func_comment: str, catalog: str, 
     for param_name, _ in signature.parameters.items():
         if param_name in FORBIDDEN_PARAMS:
             raise ValueError(f"Parameter '{param_name}' is not allowed in the function signature.")
+
         if param_name in type_hints:
-            sql_type = python_type_to_sql_type(type_hints[param_name])
+            param_hint = type_hints[param_name]
+
+            try:
+                sql_type = validate_type_hint(param_hint)
+            except ValueError as e:
+                raise ValueError(f"Error in parameter '{param_name}': type {param_hint} is not supported.") from e
+
             param_comment = docstring_comments.get(param_name, f"Parameter {param_name}")
             sql_params.append(f"{param_name} {sql_type} COMMENT '{param_comment}'")
         else:
-            raise ValueError(f"Missing type hint for parameter: {param_name}")
+            raise ValueError(f"Missing type hint for parameter: {param_name}.")
 
-    sql_return_type = python_type_to_sql_type(return_type)
     function_body = extract_function_body(func)
 
     sql_body = f"""

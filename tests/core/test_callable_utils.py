@@ -1,4 +1,5 @@
-from typing import Any, Union
+import re
+from typing import Any, Dict, List, Union
 
 import pytest
 
@@ -322,14 +323,14 @@ def test_function_with_unsupported_return_type():
     def unsupported_return_type_func() -> CustomType:
         return CustomType()
 
-    with pytest.raises(ValueError, match="Unsupported Python type"):
+    with pytest.raises(ValueError, match="Error in return type"):
         generate_sql_function_body(unsupported_return_type_func, "Unsupported return type", "test_catalog", "test_schema")
 
 def test_function_with_unsupported_param_type():
-    def unsupported_param_type_func(a: tuple) -> str:
+    def unsupported_param_type_func(a: object) -> str:
         return str(a)
 
-    with pytest.raises(ValueError, match="Unsupported Python type: <class 'tuple'>"):
+    with pytest.raises(ValueError, match="Error in parameter 'a'"):
         generate_sql_function_body(unsupported_param_type_func, "Unsupported param type", "test_catalog", "test_schema")
 
 def test_function_with_var_args():
@@ -405,7 +406,7 @@ def test_function_returning_none():
         """
         return None
 
-    with pytest.raises(ValueError, match="Unsupported Python type: <class 'NoneType'>"):
+    with pytest.raises(ValueError, match="Error in return type: <class 'NoneType'> is not supported"):
         generate_sql_function_body(func_returning_none, "Function returning None", "test_catalog", "test_schema")
 
 def test_function_returning_any():
@@ -418,7 +419,7 @@ def test_function_returning_any():
         """
         return a
 
-    with pytest.raises(ValueError, match="Unsupported Python type: typing.Any"):
+    with pytest.raises(ValueError, match="Error in return type: typing.Any is not supported"):
         generate_sql_function_body(func_returning_any, "Function returning Any", "test_catalog", "test_schema")
 
 def test_function_returning_union():
@@ -436,7 +437,7 @@ def test_function_returning_union():
             return a
         return str(a)
 
-    with pytest.raises(ValueError, match="Unsupported Python type: typing.Union"):
+    with pytest.raises(ValueError, match=re.escape("Error in return type: typing.Union[int, str] is not supported.")):
         generate_sql_function_body(func_returning_union, "Function returning Union", "test_catalog", "test_schema")
 
 def test_function_with_self():
@@ -518,3 +519,249 @@ return f"{a}-{b}"
     """
     assert sql_body.strip() == expected_sql.strip()
 
+def test_function_with_list_input():
+    def func_with_list(a: List[int]) -> str:
+        """
+        A function that accepts a list of integers.
+
+        Args:
+            a: A list of integers
+        
+        Returns:
+            str: A string representation of the list
+        """
+        return str(a)
+
+    sql_body = generate_sql_function_body(func_with_list, "Function with list input", "test_catalog", "test_schema")
+    
+    expected_sql = """
+    CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_list(a ARRAY<INTEGER> COMMENT 'A list of integers')
+    RETURNS STRING
+    LANGUAGE PYTHON
+    COMMENT 'Function with list input'
+    AS $$
+return str(a)
+    $$;
+    """
+    assert sql_body.strip() == expected_sql.strip()
+
+
+def test_function_with_map_input():
+    def func_with_map(a: Dict[str, int]) -> str:
+        """
+        A function that accepts a map with string keys and integer values.
+
+        Args:
+            a: A map with string keys and integer values
+        
+        Returns:
+            str: A string representation of the map
+        """
+        return str(a)
+
+    sql_body = generate_sql_function_body(func_with_map, "Function with map input", "test_catalog", "test_schema")
+    
+    expected_sql = """
+    CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_map(a MAP<STRING, INTEGER> COMMENT 'A map with string keys and integer values')
+    RETURNS STRING
+    LANGUAGE PYTHON
+    COMMENT 'Function with map input'
+    AS $$
+return str(a)
+    $$;
+    """
+    assert sql_body.strip() == expected_sql.strip()
+
+
+def test_function_with_list_return():
+    def func_with_list_return() -> List[int]:
+        """
+        A function that returns a list of integers.
+
+        Returns:
+            list: A list of integers
+        """
+        return [1, 2, 3]
+
+    sql_body = generate_sql_function_body(func_with_list_return, "Function with list return", "test_catalog", "test_schema")
+    
+    expected_sql = """
+    CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_list_return()
+    RETURNS ARRAY<INTEGER>
+    LANGUAGE PYTHON
+    COMMENT 'Function with list return'
+    AS $$
+return [1, 2, 3]
+    $$;
+    """
+    assert sql_body.strip() == expected_sql.strip()
+
+
+def test_function_with_map_return():
+    def func_with_map_return() -> Dict[str, int]:
+        """
+        A function that returns a map with string keys and integer values.
+
+        Returns:
+            dict: A map with string keys and integer values
+        """
+        return {"a": 1, "b": 2}
+
+    sql_body = generate_sql_function_body(func_with_map_return, "Function with map return", "test_catalog", "test_schema")
+    
+    expected_sql = """
+    CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_map_return()
+    RETURNS MAP<STRING, INTEGER>
+    LANGUAGE PYTHON
+    COMMENT 'Function with map return'
+    AS $$
+return {"a": 1, "b": 2}
+    $$;
+    """
+    assert sql_body.strip() == expected_sql.strip()
+
+def test_function_with_invalid_list_type():
+    def func_with_invalid_list(a: List[Any]) -> str:
+        """
+        A function that accepts a list of any type.
+
+        Args:
+            a: A list of any type
+        
+        Returns:
+            str: A string representation of the list
+        """
+        return str(a)
+
+    with pytest.raises(ValueError, match=re.escape("Error in parameter 'a': type typing.List[typing.Any] is not supported")):
+        generate_sql_function_body(func_with_invalid_list, "Function with invalid list", "test_catalog", "test_schema")
+
+
+def test_function_with_invalid_map_type():
+    def func_with_invalid_map(a: Dict[str, Any]) -> str:
+        """
+        A function that accepts a map with string keys and any values.
+
+        Args:
+            a: A map with string keys and any values
+        
+        Returns:
+            str: A string representation of the map
+        """
+        return str(a)
+
+    with pytest.raises(ValueError, match=re.escape("Error in parameter 'a': type typing.Dict[str, typing.Any] is not supported")):
+        generate_sql_function_body(func_with_invalid_map, "Function with invalid map", "test_catalog", "test_schema")
+
+
+def test_function_with_invalid_list_return():
+    def func_with_invalid_list_return() -> List[Any]:
+        """
+        A function that returns a list of any type.
+
+        Returns:
+            list: A list of any type
+        """
+        return [1, "string", True]
+
+    with pytest.raises(ValueError, match=re.escape("Error in return type: typing.List[typing.Any] is not supported")):
+        generate_sql_function_body(func_with_invalid_list_return, "Function with invalid list return", "test_catalog", "test_schema")
+
+
+def test_function_with_invalid_map_return():
+    def func_with_invalid_map_return() -> Dict[str, Any]:
+        """
+        A function that returns a map with string keys and any values.
+
+        Returns:
+            dict: A map with string keys and any values
+        """
+        return {"a": 1, "b": "string"}
+
+    with pytest.raises(ValueError, match=re.escape("Error in return type: typing.Dict[str, typing.Any] is not supported")):
+        generate_sql_function_body(func_with_invalid_map_return, "Function with invalid map return", "test_catalog", "test_schema")
+
+def test_function_with_dict_list_input():
+    def func_with_dict_list(a: Dict[str, List[str]]) -> str:
+        """
+        A function that accepts a dictionary with string keys and list of string values.
+
+        Args:
+            a: A dictionary with string keys and list of string values
+        
+        Returns:
+            str: A string representation of the dictionary
+        """
+        return str(a)
+
+    sql_body = generate_sql_function_body(func_with_dict_list, "Function with Dict[str, List[str]] input", "test_catalog", "test_schema")
+
+    expected_sql = """
+    CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_dict_list(a MAP<STRING, ARRAY<STRING>> COMMENT 'A dictionary with string keys and list of string values')
+    RETURNS STRING
+    LANGUAGE PYTHON
+    COMMENT 'Function with Dict[str, List[str]] input'
+    AS $$
+return str(a)
+    $$;
+    """
+    assert sql_body.strip() == expected_sql.strip()
+
+def test_function_with_list_of_dict_input():
+    def func_with_list_of_map(a: List[Dict[str, int]]) -> str:
+        """
+        A function that accepts a list of maps with string keys and integer values.
+
+        Args:
+            a: A list of maps with string keys and integer values
+        
+        Returns:
+            str: A string representation of the list of maps
+        """
+        return str(a)
+
+    sql_body = generate_sql_function_body(func_with_list_of_map, "Function with List[Dict[str, int]] input", "test_catalog", "test_schema")
+
+    expected_sql = """
+    CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_list_of_map(a ARRAY<MAP<STRING, INTEGER>> COMMENT 'A list of maps with string keys and integer values')
+    RETURNS STRING
+    LANGUAGE PYTHON
+    COMMENT 'Function with List[Dict[str, int]] input'
+    AS $$
+return str(a)
+    $$;
+    """
+    assert sql_body.strip() == expected_sql.strip()
+
+def test_function_with_heavily_nested_structure():
+    def func_with_heavily_nested(a: List[Dict[str, List[Dict[str, int]]]]) -> str:
+        """
+        A function that accepts a heavily nested structure of lists and dictionaries.
+
+        Args:
+            a: A list of dictionaries where the key is a string and the value is a list of dictionaries
+               with string keys and integer values.
+        
+        Returns:
+            str: A string representation of the nested structure
+        """
+        return str(a)
+
+    sql_body = generate_sql_function_body(
+        func_with_heavily_nested,
+        "Function with heavily nested structure List[Dict[str, List[Dict[str, int]]]]",
+        "test_catalog",
+        "test_schema"
+    )
+
+    expected_sql = """
+    CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_heavily_nested(a ARRAY<MAP<STRING, ARRAY<MAP<STRING, INTEGER>>>> COMMENT 'A list of dictionaries where the key is a string and the value is a list of dictionaries with string keys and integer values.')
+    RETURNS STRING
+    LANGUAGE PYTHON
+    COMMENT 'Function with heavily nested structure List[Dict[str, List[Dict[str, int]]]]'
+    AS $$
+return str(a)
+    $$;
+    """
+    
+    assert sql_body.strip() == expected_sql.strip()

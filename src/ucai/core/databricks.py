@@ -213,7 +213,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
         raise ValueError("Either function_info or sql_function_body should be provided.")
 
     @override
-    def create_python_function(self, *, func: Callable, func_comment: str, catalog: str, schema: str) -> "FunctionInfo":
+    def create_python_function(self, *, func: Callable[..., Any], func_comment: str, catalog: str, schema: str) -> "FunctionInfo":
         """
         Create a Unity Catalog (UC) function directly from a Python function.
 
@@ -238,6 +238,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
             | `datetime.date`     | `DATE`             |
             | `datetime.datetime` | `TIMESTAMP`        |
             | `list`              | `ARRAY`            |
+            | `tuple`             | `ARRAY`            |
             | `dict`              | `MAP`              |
 
             - **Example of a valid function**:
@@ -253,6 +254,16 @@ class DatabricksFunctionClient(BaseFunctionClient):
             ```
             Attempting to create a UC function from a function without type hints will raise an error, as the 
             system relies on type hints to generate the UC function's signature.
+
+            - For container types like `list`, `tuple` and `dict`, the inner types **must be specified** and must be
+            uniform (Union types are not permitted). For example:
+            
+            ```python
+            def my_function(a: List[int], b: Dict[str, float]) -> List[str]:
+                return [str(x) for x in a]
+            ```
+
+            - var args and kwargs are not supported. All arguments must be explicitly defined in the function signature.
 
         2. **Google Docstring Guidelines**:
             - It is recommended to include detailed Python docstrings in your function to provide additional context.
