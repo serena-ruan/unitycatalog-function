@@ -182,6 +182,10 @@ def process_parameter(
     if param_name in FORBIDDEN_PARAMS:
         raise ValueError(f"Parameter '{param_name}' is not allowed in the function signature.")
 
+    if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+        kind = 'var-positional (*args)' if param.kind == inspect.Parameter.VAR_POSITIONAL else 'var-keyword (**kwargs)'
+        raise ValueError(f"Parameter '{param_name}' is a {kind} parameter, which is not supported in SQL functions.")
+
     if param_name not in type_hints:
         raise ValueError(f"Missing type hint for parameter: {param_name}.")
 
