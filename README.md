@@ -84,14 +84,14 @@ The `create_python_function` API allows you to directly convert a Python functio
     | `tuple`             | `ARRAY`            |
     | `dict`              | `MAP`              |
 
-- **Container Types**: If you use container types like `list`, `tuple`, or `dict`, you **must specify the inner types** explicitly. Unity Catalog does not support ambiguous types like `List` or `Dict`. For example:
+- **Collection Types**: If you use collection types like `list`, `tuple`, or `dict`, you **must specify the inner types** explicitly. Unity Catalog does not support ambiguous types like `List` or `Dict`. For example:
 
 ```python
 def process_data(ids: List[int], details: Dict[str, float]) -> List[str]:
     return [f"{id_}: {details.get(id_)}" for id_ in ids]
 ```
 
-Failing to define the container types will result in an Exception.
+Failing to define the collection types will result in an Exception.
 
 - **Disallowed Types**: Union types (e.g., `Union[str, int]`) and `Any` are **not supported**. You will receive an error if the return type or argument types include `Union` or `Any`.
 
@@ -167,6 +167,95 @@ def valid_func(a: int) -> List[int]:
 def create_dict() -> Dict[str, int]:
     return {"a": 1, "b": 2}
 ```
+
+- **Optional Values**: If you define an optional value, you must specify a default for your argument type hint to be converted to the correct SQL syntax. The assigned default, whether using `Optional[<type>]` or directly defining the type will be used as the default value when calling your function if it is not defined within the request dictionary when calling the function.
+
+- **Valid Examples**:
+
+```python
+from typing import Optional
+
+def func_with_optional_param(a: Optional[int] = None, b: str = "default") -> str:
+    """
+    A function that demonstrates the use of optional parameters with default values.
+
+    Args:
+        a: Optional integer parameter, default None.
+        b: Optional string parameter, default "default".
+
+    Returns:
+        str: A concatenated string representation of the parameters.
+    """
+    return f"{a}-{b}"
+
+# This will be converted into the following SQL function:
+# CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_optional_param(
+#     a INTEGER DEFAULT NULL COMMENT 'Optional integer parameter, default None.',
+#     b STRING DEFAULT 'default' COMMENT 'Optional string parameter, default "default".'
+# )
+# RETURNS STRING
+# LANGUAGE PYTHON
+# COMMENT 'Function with optional parameter'
+# AS $$
+# return f"{a}-{b}"
+# $$;
+
+```
+
+In this valid example, both 'a' and 'b' have default values. 'a' is declared as `Optional[int]`, meaning it can either be an `int` or `None`. The default value of 'a' is `None`, which is converted to `NULL` in SQL. The string parameter 'b' has a default value of `"default"`.
+
+```python
+def func_with_direct_default(a: int = 10, b: str = "hello") -> str:
+    """
+    A function that demonstrates direct type hint with default values.
+
+    Args:
+        a: Optional integer parameter with default 10.
+        b: Optional string parameter with default "hello".
+
+    Returns:
+        str: A concatenated string of the inputs.
+    """
+    return f"{a}-{b}"
+
+# This will be converted into the following SQL function:
+# CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_direct_default(
+#     a INTEGER DEFAULT 10 COMMENT 'Optional integer parameter with default 10.',
+#     b STRING DEFAULT 'hello' COMMENT 'Optional string parameter with default "hello".'
+# )
+# RETURNS STRING
+# LANGUAGE PYTHON
+# COMMENT 'Function with direct default values'
+# AS $$
+# return f"{a}-{b}"
+# $$;
+```
+
+In this example, the parameters are not wrapped in `Optional`, but defaults are still provided. The function is correctly converted, with the defaults for 'a' and 'b' being included in the SQL.
+
+- **Invalid Example**
+
+```python
+from typing import Optional
+
+def invalid_func(a: Optional[int], b: str = "default") -> str:
+    """
+    A function with an optional parameter that does not specify a default.
+
+    Args:
+        a: Optional integer parameter without default.
+        b: Optional string parameter, default "default".
+
+    Returns:
+        str: A concatenated string representation of the parameters.
+    """
+    return f"{a}-{b}"
+
+# Error: Optional values must have default values assigned.
+# The absence of a default value for `a` will cause the function conversion to fail.
+```
+
+Why this is invalid: In this case, 'a' is declared as `Optional[int]` but does not have a default value assigned. The SQL function conversion will fail because `Optional` implies that the parameter can be omitted, but without a default value, there is no fallback for SQL to use. To fix this, you must assign a default value (e.g., `a: Optional[int] = None`).
 
 ---
 
