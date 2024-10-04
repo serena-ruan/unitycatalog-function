@@ -3,7 +3,7 @@ import inspect
 from textwrap import dedent
 from typing import Any, Callable, get_type_hints
 
-from ucai.core.utils.type_utils import python_type_to_sql_type
+from ucai.core.utils.type_utils import python_type_to_sql_type, validate_container_type
 
 FORBIDDEN_PARAMS = ['self', 'cls']
 
@@ -66,28 +66,6 @@ def parse_dedented_source(func: Callable[..., Any]) -> tuple:
     full_source = inspect.getsource(func)
     dedented_source = dedent(full_source)
     return ast.parse(dedented_source), full_source.splitlines()
-
-
-def validate_container_type(hint: Any) -> str:
-    """Validate and extract the SQL representation of nested types for List and Dict."""
-    if hasattr(hint, '__origin__'):
-        origin = hint.__origin__
-        args = hint.__args__
-
-        if origin == list:
-            if len(args) != 1:
-                raise ValueError(f"Invalid type hint for array, expected one internal type, got {args}.")
-            inner_type = python_type_to_sql_type(args[0])
-            return f"ARRAY<{inner_type}>"
-
-        elif origin == dict:
-            if len(args) != 2:
-                raise ValueError(f"Invalid type hint for map, expected two internal types, got {args}.")
-            key_type = python_type_to_sql_type(args[0])
-            value_type = python_type_to_sql_type(args[1])
-            return f"MAP<{key_type}, {value_type}>"
-
-    raise ValueError(f"Unsupported or invalid container type: {hint}.")
 
 
 def validate_type_hint(hint: Any) -> str:

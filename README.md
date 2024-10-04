@@ -91,6 +91,8 @@ def process_data(ids: List[int], details: Dict[str, float]) -> List[str]:
     return [f"{id_}: {details.get(id_)}" for id_ in ids]
 ```
 
+Failing to define the container types will result in an Exception.
+
 - **Disallowed Types**: Union types (e.g., `Union[str, int]`) and `Any` are **not supported**. You will receive an error if the return type or argument types include `Union` or `Any`.
 
 ```python

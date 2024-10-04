@@ -765,3 +765,116 @@ return str(a)
     """
     
     assert sql_body.strip() == expected_sql.strip()
+
+def test_function_with_extra_docstring_params_ignored():
+    def func_with_extra_param_in_docstring(a: int) -> str:
+        """
+        A function with extra parameter in docstring.
+
+        Args:
+            a: The first argument
+            b: An extra parameter not in function signature
+        
+        Returns:
+            str: The string representation of the first argument
+        """
+        return str(a)
+
+    # We expect the generated SQL to ignore 'b' since it's not in the function signature
+    sql_body = generate_sql_function_body(
+        func_with_extra_param_in_docstring,
+        "Function with extra docstring parameter",
+        "test_catalog",
+        "test_schema"
+    )
+    
+    expected_sql = """
+    CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_extra_param_in_docstring(a INTEGER COMMENT 'The first argument')
+    RETURNS STRING
+    LANGUAGE PYTHON
+    COMMENT 'Function with extra docstring parameter'
+    AS $$
+return str(a)
+    $$;
+    """
+    
+    assert sql_body.strip() == expected_sql.strip()
+
+
+def test_function_with_plain_list_type():
+    def func_with_plain_list_type(a: List) -> str:
+        """
+        A function with a plain List as a parameter type.
+
+        Args:
+            a: A plain list without inner types
+
+        Returns:
+            str: A string representation of the list
+        """
+        return str(a)
+
+    with pytest.raises(ValueError, match="Error in parameter 'a': type typing.List is not supported."):
+        generate_sql_function_body(
+            func_with_plain_list_type,
+            "Function with plain List type",
+            "test_catalog",
+            "test_schema"
+        )
+
+def test_function_with_plain_dict_type():
+    def func_with_plain_dict_type(a: Dict) -> str:
+        """
+        A function with a plain Dict as a parameter type.
+
+        Args:
+            a: A plain dict without inner types
+
+        Returns:
+            str: A string representation of the dict
+        """
+        return str(a)
+
+    with pytest.raises(ValueError, match="Error in parameter 'a': type typing.Dict is not supported."):
+        generate_sql_function_body(
+            func_with_plain_dict_type,
+            "Function with plain Dict type",
+            "test_catalog",
+            "test_schema"
+        )
+
+def test_function_with_plain_list_return_type():
+    def func_with_plain_list_return() -> List:
+        """
+        A function with a plain List as a return type.
+
+        Returns:
+            list: A plain list without inner types
+        """
+        return [1, 2, 3]
+
+    with pytest.raises(ValueError, match="Error in return type: typing.List is not supported."):
+        generate_sql_function_body(
+            func_with_plain_list_return,
+            "Function with plain List return type",
+            "test_catalog",
+            "test_schema"
+        )
+
+def test_function_with_plain_dict_return_type():
+    def func_with_plain_dict_return() -> Dict:
+        """
+        A function with a plain Dict as a return type.
+
+        Returns:
+            dict: A plain dict without inner types
+        """
+        return {"key": "value"}
+
+    with pytest.raises(ValueError, match="Error in return type: typing.Dict is not supported."):
+        generate_sql_function_body(
+            func_with_plain_dict_return,
+            "Function with plain Dict return type",
+            "test_catalog",
+            "test_schema"
+        )

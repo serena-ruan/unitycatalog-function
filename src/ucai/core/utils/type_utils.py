@@ -105,16 +105,24 @@ def python_type_to_sql_type(py_type: Any) -> str:
     """
     Convert a Python type to its SQL equivalent. Handles nested types (e.g., List[Dict[str, int]]) 
     by recursively mapping the inner types using PYTHON_TO_SQL_TYPE_MAPPING.
+    
     Args:
         py_type: The Python type to be converted (e.g., List[int], Dict[str, List[int]]).
+    
     Returns:
         str: The corresponding SQL type (e.g., ARRAY<MAP<STRING, INTEGER>>).
+    
     Raises:
         ValueError: If the type cannot be mapped to a SQL type.
     """
     # Handle generic types (e.g., List, Dict)
     origin = get_origin(py_type)
+
     if origin is dict:
+        # Ensure Dict has both key and value types defined
+        if not get_args(py_type):
+            raise ValueError(f"Unsupported Python type: typing.Dict requires key and value types.")
+        
         # Get key and value types for Dict
         key_type, value_type = get_args(py_type)
         key_sql_type = python_type_to_sql_type(key_type)
@@ -122,6 +130,10 @@ def python_type_to_sql_type(py_type: Any) -> str:
         return f"MAP<{key_sql_type}, {value_sql_type}>"
     
     elif origin in (list, tuple):
+        # Ensure List or Tuple has a specific element type defined
+        if not get_args(py_type):
+            raise ValueError(f"Unsupported Python type: typing.List or typing.Tuple requires an element type.")
+        
         # Get element type for List or Tuple (only one type should be allowed)
         element_type, = get_args(py_type)
         element_sql_type = python_type_to_sql_type(element_type)
@@ -132,3 +144,25 @@ def python_type_to_sql_type(py_type: Any) -> str:
         return PYTHON_TO_SQL_TYPE_MAPPING[py_type]
     
     raise ValueError(f"Unsupported Python type: {py_type}")
+
+def validate_container_type(hint: Any) -> str:
+    """Validate and extract the SQL representation of nested types for List and Dict."""
+    if hasattr(hint, '__origin__'):
+        origin = hint.__origin__
+        args = get_args(hint)
+
+        if origin == list:
+            if not args:
+                raise ValueError(f"Unsupported Python type: typing.List requires an element type.")
+            inner_type = python_type_to_sql_type(args[0])
+            return f"ARRAY<{inner_type}>"
+
+        elif origin == dict:
+            if not args:
+                raise ValueError(f"Unsupported Python type: typing.Dict requires key and value types.")
+            key_type = python_type_to_sql_type(args[0])
+            value_type = python_type_to_sql_type(args[1])
+            return f"MAP<{key_type}, {value_type}>"
+
+    raise ValueError(f"Unsupported or invalid container type: {hint}.")
+
