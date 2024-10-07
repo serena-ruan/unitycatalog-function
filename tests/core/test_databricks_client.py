@@ -34,7 +34,6 @@ from ucai.test_utils.client_utils import (
 )
 from ucai.test_utils.function_utils import (
     CATALOG,
-    SCHEMA,
     create_python_function_and_cleanup,
     generate_func_name_and_cleanup,
     random_func_name,
