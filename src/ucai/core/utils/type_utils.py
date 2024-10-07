@@ -9,10 +9,12 @@ PYTHON_TO_SQL_TYPE_MAPPING = {
     bool: "BOOLEAN",
     datetime.date: "DATE",
     datetime.datetime: "TIMESTAMP",
-    decimal.Decimal: "DECIMAL",
+    datetime.timedelta: "INTERVAL DAY TO SECOND",
+    decimal.Decimal: "DECIMAL(38, 18)",  # default precision and scale
     list: "ARRAY",
     tuple: "ARRAY",
     dict: "MAP",
+    bytes: "BINARY",
     None: "NULL",
 }
 
