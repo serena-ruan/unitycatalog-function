@@ -213,7 +213,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
         raise ValueError("Either function_info or sql_function_body should be provided.")
 
     @override
-    def create_python_function(self, *, func: Callable[..., Any], func_comment: str, catalog: str, schema: str) -> "FunctionInfo":
+    def create_python_function(self, *, func: Callable[..., Any], catalog: str, schema: str) -> "FunctionInfo":
         """
         Create a Unity Catalog (UC) function directly from a Python function.
 
@@ -266,8 +266,18 @@ class DatabricksFunctionClient(BaseFunctionClient):
             - var args and kwargs are not supported. All arguments must be explicitly defined in the function signature.
 
         2. **Google Docstring Guidelines**:
-            - It is recommended to include detailed Python docstrings in your function to provide additional context.
+            - It is required to include detailed Python docstrings in your function to provide additional context.
             The docstrings will be used to auto-generate parameter descriptions and a function-level comment.
+
+            - A **function description** must be provided at the beginning of the docstring (within the triple quotes)
+            to describe the function's purpose. This description will be used as the function-level comment in the UC function.
+            The description **must** be included in the first portion of the docstring prior to any argument descriptions.
+
+            - **Parameter descriptions** are optional but recommended. If provided, they should be included in the
+            Google-style docstring. The parameter descriptions will be used to auto-generate detailed descriptions for
+            each parameter in the UC function. The additional context provided by these argument descriptions can be
+            useful for agent applications to understand context of the arguments and their purpose.
+
             - Only **Google-style docstrings** are supported for this auto-generation. For example:
             ```python
             def my_function(a: int, b: str) -> float:
@@ -283,8 +293,9 @@ class DatabricksFunctionClient(BaseFunctionClient):
                 \"\"\"
                 return a + len(b)
             ```
-            - If docstrings do not conform to Google-style, parameter descriptions will default to `"Parameter <name>"`, 
-            and no further information will be provided in the function comment.
+            - If docstrings do not conform to Google-style for specifying arguments descriptions, parameter descriptions
+             will default to `"Parameter <name>"`, and no further information will be provided in the function comment
+             for the given parameter.
 
             For examples of Google docstring guidelines, see
             [this link](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html)
@@ -296,9 +307,9 @@ class DatabricksFunctionClient(BaseFunctionClient):
             GenAI or other tools.
 
         **Function Metadata**:
-        - You can provide an overall description of the function through the `func_comment` parameter.
         - Docstrings (if provided and Google-style) will automatically be included as detailed descriptions for 
-        function parameters, enhancing the discoverability of your UC function.
+        function parameters as well as for the function itself, enhancing the discoverability of the utility of your
+        UC function.
 
         **Example**:
         ```python
@@ -317,7 +328,6 @@ class DatabricksFunctionClient(BaseFunctionClient):
 
         client.create_python_function(
             func=example_function,
-            func_comment="An example function that multiplies an integer by the string length.",
             catalog="my_catalog",
             schema="my_schema"
         )
@@ -325,7 +335,6 @@ class DatabricksFunctionClient(BaseFunctionClient):
 
         Args:
             func (Callable): The Python function to convert into a UDF.
-            func_comment (str): A brief description of the function.
             catalog (str): The catalog name in which to create the function.
             schema (str): The schema name in which to create the function.
 
@@ -337,7 +346,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
             raise ValueError("The provided function is not callable.")
 
         try:
-            sql_function_body = generate_sql_function_body(func, func_comment, catalog, schema)
+            sql_function_body = generate_sql_function_body(func, catalog, schema)
         except Exception as e:
             raise RuntimeError(f"Failed to generate SQL function body for {func.__name__}") from e
 

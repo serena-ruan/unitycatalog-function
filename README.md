@@ -195,7 +195,7 @@ def func_with_optional_param(a: Optional[int] = None, b: str = "default") -> str
 # )
 # RETURNS STRING
 # LANGUAGE PYTHON
-# COMMENT 'Function with optional parameter'
+# COMMENT 'A function that demonstrates the use of optional parameters with default values.'
 # AS $$
 # return f"{a}-{b}"
 # $$;
@@ -211,7 +211,7 @@ def func_with_direct_default(a: int = 10, b: str = "hello") -> str:
 
     Args:
         a: Optional integer parameter with default 10.
-        b: Optional string parameter with default "hello".
+        b: Optional string parameter with default 'hello'.  # single quotes are cast to double quotes
 
     Returns:
         str: A concatenated string of the inputs.
@@ -225,7 +225,7 @@ def func_with_direct_default(a: int = 10, b: str = "hello") -> str:
 # )
 # RETURNS STRING
 # LANGUAGE PYTHON
-# COMMENT 'Function with direct default values'
+# COMMENT 'A function that demonstrates direct type hint with default values.'
 # AS $$
 # return f"{a}-{b}"
 # $$;
@@ -268,7 +268,6 @@ Why this is invalid: In this case, 'a' is declared as `Optional[int]` but does n
 
 **Creating a Function**:
 
-- The `func_comment` parameter allows you to provide an overall description for the function. This comment will appear as metadata in Unity Catalog.
 - **Function Example**:
 
 ```python
@@ -289,7 +288,6 @@ def example_function(x: int, y: str) -> str:
 function_comment = "Combines an integer and the length of a string."
 function_info = client.create_python_function(
     func=example_function,
-    func_comment=function_comment,
     catalog="my_catalog",
     schema="my_schema"
 )
@@ -299,7 +297,7 @@ function_info = client.create_python_function(
 
 **Function Metadata and Validation**:
 
-- **Metadata**: Generated from the function’s docstrings and descriptions passed via the `func_comment`.
+- **Metadata**: Generated from the function’s docstrings (description and argument comments). Failure to provide a function description will cause a ValueError to be raised.
 - **Validation**: If the function or any of its components (e.g., types) are invalid, an exception will be raised.
 - **Strict Return Types**: If a function’s return type is not supported or improperly defined, an exception will be raised. For instance, return types such as `Union[int, str]` will cause an error.
 
@@ -308,6 +306,7 @@ function_info = client.create_python_function(
 ##### Example Usage
 
 ```python
+from typing import Dict, List
 # Define the function to be registered
 def process_orders(orders: Dict[str, List[int]]) -> str:
     """
@@ -327,7 +326,6 @@ function_description = "Processes a dictionary of customer orders and returns a 
 # Create the function in Unity Catalog
 function_info = client.create_python_function(
     func=process_orders,
-    func_comment=function_description,
     catalog="sales_catalog",
     schema="order_schema"
 )

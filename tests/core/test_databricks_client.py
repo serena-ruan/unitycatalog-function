@@ -226,6 +226,7 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
 
 def python_function_with_struct_input() -> PythonFunctionInputOutput:
     def func(s: dict) -> str:
+        """Python function with struct input"""
         result = str(s['a']) + ";"
         if s['b']:
             result += ",".join([str(k) + "=>" + str(v) for k, v in s['b'].items()])
@@ -241,6 +242,7 @@ def python_function_with_struct_input() -> PythonFunctionInputOutput:
 
 def python_function_with_array_input() -> PythonFunctionInputOutput:
     def func(s: List[int]) -> str:
+        """Python function with array input"""
         return ",".join(str(i) for i in s)
 
     return PythonFunctionInputOutput(
@@ -252,6 +254,7 @@ def python_function_with_array_input() -> PythonFunctionInputOutput:
 
 def python_function_with_string_input() -> PythonFunctionInputOutput:
     def func(s: str) -> str:
+        """Python function with string input"""
         return s
 
     return PythonFunctionInputOutput(
@@ -263,6 +266,7 @@ def python_function_with_string_input() -> PythonFunctionInputOutput:
 
 def python_function_with_binary_input() -> PythonFunctionInputOutput:
     def func(s: bytes) -> str:
+        """Python function with binary input"""
         return s.decode('utf-8')
 
     return PythonFunctionInputOutput(
@@ -278,6 +282,7 @@ def python_function_with_binary_input() -> PythonFunctionInputOutput:
 
 def python_function_with_interval_input() -> PythonFunctionInputOutput:
     def func(s: datetime.timedelta) -> str:
+        """Python function with interval input"""
         return (datetime.datetime(2024, 8, 19) - s).isoformat()
 
     return PythonFunctionInputOutput(
@@ -292,6 +297,7 @@ def python_function_with_interval_input() -> PythonFunctionInputOutput:
 
 def python_function_with_timestamp_input() -> PythonFunctionInputOutput:
     def func(x: datetime.datetime, y: datetime.datetime) -> str:
+        """Python function with timestamp input"""
         return str(x.isoformat()) + "; " + str(y.isoformat())
 
     return PythonFunctionInputOutput(
@@ -309,6 +315,7 @@ def python_function_with_timestamp_input() -> PythonFunctionInputOutput:
 
 def python_function_with_date_input() -> PythonFunctionInputOutput:
     def func(s: datetime.date) -> str:
+        """Python function with date input"""
         return s.isoformat()
 
     return PythonFunctionInputOutput(
@@ -320,6 +327,7 @@ def python_function_with_date_input() -> PythonFunctionInputOutput:
 
 def python_function_with_map_input() -> PythonFunctionInputOutput:
     def func(s: Dict[str, List[int]]) -> str:
+        """Python function with map input"""
         result = []
         for x, y in s.items():
             result.append(str(x) + " => " + str(y))
@@ -334,6 +342,7 @@ def python_function_with_map_input() -> PythonFunctionInputOutput:
 
 def python_function_with_decimal_input() -> PythonFunctionInputOutput:
     def func(s: Decimal) -> str:
+        """Python function with decimal input"""
         return str(s)
 
     return PythonFunctionInputOutput(
@@ -420,7 +429,6 @@ def test_create_and_execute_python_function(
     with generate_func_name_and_cleanup(client) as func_name:
         client.create_python_function(
             func=function_sample.func,
-            func_comment="Test Python function",
             catalog=CATALOG,
             schema=SCHEMA
         )
@@ -973,13 +981,10 @@ def test_create_and_execute_python_function(client: DatabricksFunctionClient):
     def simple_func(x: int) -> str:
         """Test function that returns the string version of x."""
         return str(x)
-
-    func_comment = "A simple Python function that returns the string version of an integer"
     
     with generate_func_name_and_cleanup(client) as func_name:
         client.create_python_function(
             func=simple_func,
-            func_comment=func_comment,
             catalog=CATALOG,
             schema=SCHEMA
         )
@@ -992,12 +997,9 @@ def test_create_python_function_with_invalid_arguments(client: DatabricksFunctio
         """Function with 'self' in the argument."""
         return str(x)
 
-    func_comment = "A Python function that incorrectly uses 'self' in the signature"
-
     with pytest.raises(RuntimeError, match="Failed to generate SQL function body for invalid_func"):
         client.create_python_function(
             func=invalid_func,
-            func_comment=func_comment,
             catalog=CATALOG,
             schema=SCHEMA
         )
@@ -1006,12 +1008,9 @@ def test_create_python_function_with_invalid_arguments(client: DatabricksFunctio
         """Function with 'cls' in the argument."""
         return str(x)
 
-    func_comment = "A Python function that incorrectly uses 'cls' in the signature"
-
     with pytest.raises(RuntimeError, match="Failed to generate SQL function body for another_invalid_func"):
         client.create_python_function(
             func=another_invalid_func,
-            func_comment=func_comment,
             catalog=CATALOG,
             schema=SCHEMA
         )
@@ -1025,12 +1024,9 @@ def test_create_python_function_with_complex_body(client: DatabricksFunctionClie
         except Exception as e:
             raise ValueError(f"Failed to add numbers") from e
 
-    func_comment = "A complex Python function with try-except logic"
-
     with generate_func_name_and_cleanup(client) as func_name:
         client.create_python_function(
             func=complex_func,
-            func_comment=func_comment,
             catalog=CATALOG,
             schema=SCHEMA
         )
@@ -1053,12 +1049,9 @@ def test_create_python_function_with_docstring_comments(client: DatabricksFuncti
         """
         return a + b
 
-    func_comment = "A Python function with detailed docstring"
-
     with generate_func_name_and_cleanup(client) as func_name:
         client.create_python_function(
             func=documented_func,
-            func_comment=func_comment,
             catalog=CATALOG,
             schema=SCHEMA
         )
@@ -1071,12 +1064,9 @@ def test_create_python_function_missing_return_type(client: DatabricksFunctionCl
         """A function that lacks a return type."""
         return a + b
 
-    func_comment = "A Python function missing a return type hint"
-
     with pytest.raises(RuntimeError, match="Failed to generate SQL function body for missing_return_type_func"):
         client.create_python_function(
             func=missing_return_type_func,
-            func_comment=func_comment,
             catalog=CATALOG,
             schema=SCHEMA
         )
@@ -1087,7 +1077,6 @@ def test_create_python_function_not_callable(client: DatabricksFunctionClient):
     with pytest.raises(ValueError, match="The provided function is not callable"):
         client.create_python_function(
             func=scalar,
-            func_comment="A non-callable object",
             catalog=CATALOG,
             schema=SCHEMA
         )
@@ -1106,12 +1095,9 @@ def test_function_with_list_of_int_return(client: DatabricksFunctionClient):
         """
         return list(range(a))
 
-    func_comment = "A Python function returning a list of integers"
-
     with generate_func_name_and_cleanup(client) as func_name:
         client.create_python_function(
             func=func_returning_list,
-            func_comment=func_comment,
             catalog=CATALOG,
             schema=SCHEMA
         )
@@ -1133,12 +1119,9 @@ def test_function_with_dict_of_string_to_int_return(client: DatabricksFunctionCl
         """
         return {f"key_{i}": i for i in range(a)}
 
-    func_comment = "A Python function returning a map from string to int"
-
     with generate_func_name_and_cleanup(client) as func_name:
         client.create_python_function(
             func=func_returning_map,
-            func_comment=func_comment,
             catalog=CATALOG,
             schema=SCHEMA
         )
@@ -1151,12 +1134,9 @@ def test_function_with_invalid_list_return_type(client: DatabricksFunctionClient
         """A function returning a list without specifying the element type."""
         return list(range(a))
 
-    func_comment = "A Python function with invalid list return type"
-
     with pytest.raises(RuntimeError, match="Failed to generate SQL function body for func_with_invalid_list_return"):
         client.create_python_function(
             func=func_with_invalid_list_return,
-            func_comment=func_comment,
             catalog=CATALOG,
             schema=SCHEMA
         )
@@ -1166,12 +1146,9 @@ def test_function_with_invalid_dict_return_type(client: DatabricksFunctionClient
         """A function returning a dict without specifying key and value types."""
         return {f"key_{i}": i for i in range(a)}
 
-    func_comment = "A Python function with invalid dict return type"
-
     with pytest.raises(RuntimeError, match="Failed to generate SQL function body for func_with_invalid_dict_return"):
         client.create_python_function(
             func=func_with_invalid_dict_return,
-            func_comment=func_comment,
             catalog=CATALOG,
             schema=SCHEMA
         )
@@ -1181,12 +1158,9 @@ def test_function_with_union_return_type(client: DatabricksFunctionClient):
         """A function returning a union type."""
         return a if a % 2 == 0 else str(a)
 
-    func_comment = "A Python function returning a union of str and int"
-
     with pytest.raises(RuntimeError, match="Failed to generate SQL function body for func_with_union_return"):
         client.create_python_function(
             func=func_with_union_return,
-            func_comment=func_comment,
             catalog=CATALOG,
             schema=SCHEMA
         )

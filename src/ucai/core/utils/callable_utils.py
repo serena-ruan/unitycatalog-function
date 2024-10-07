@@ -1,68 +1,159 @@
 import ast
 import inspect
+from dataclasses import dataclass
 from textwrap import dedent, indent
-from typing import Any, Callable, Union, get_type_hints
+from typing import Any, Callable, Optional, Union, get_type_hints
 
 from ucai.core.utils.type_utils import python_type_to_sql_type
 
 FORBIDDEN_PARAMS = ['self', 'cls']
 
-def parse_docstring(docstring: str) -> dict[str, str]:
+
+@dataclass
+class DocstringInfo:
+    """Dataclass to store parsed docstring information."""
+    description: str
+    params: Optional[dict[str, str]]
+    returns: Optional[str]
+    raises: Optional[str]
+
+
+class FunctionBodyExtractor(ast.NodeVisitor):
     """
-    Parses the docstring to extract comments for parameters, return value, and exceptions raised.
-    Uses a state machine approach to handle different sections like Args, Returns, and Raises.
+    AST NodeVisitor class to extract the body of a function.
     """
-    parsed_comments = {}
-    current_param = None
+    def __init__(self, func_name: str, source_code: str):
+        self.func_name = func_name
+        self.source_code = source_code
+        self.function_body = ''
+        self.indent_unit = 4
+        self.found = False
+
+    def visit_FunctionDef(self, node: ast.FunctionDef):
+        if not self.found and node.name == self.func_name:
+            self.found = True
+            self.extract_body(node)
+
+    def extract_body(self, node: ast.FunctionDef):
+        body = node.body
+        # Skip the docstring
+        if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str):
+            body = body[1:]
+
+        if not body:
+            return
+
+        start_lineno = body[0].lineno
+        end_lineno = body[-1].end_lineno
+
+        source_lines = self.source_code.splitlines(keepends=True)
+        function_body_lines = source_lines[start_lineno - 1:end_lineno]
+
+        self.function_body = dedent(''.join(function_body_lines)).rstrip('\n')
+
+        indents = [stmt.col_offset for stmt in body if stmt.col_offset is not None]
+        if indents:
+            self.indent_unit = min(indents)
+
+
+def parse_docstring(docstring: str) -> DocstringInfo:
+    """
+    Parses the docstring to extract the function description, parameter comments,
+    return value description, and exceptions raised, without using regular expressions.
+    Handles both reStructuredText and Google-style docstrings.
+
+    Args:
+        docstring: The docstring to parse.
+
+    Returns:
+        DocstringInfo: A dataclass containing the parsed information.
+
+    Raises:
+        ValueError: If the docstring is empty or missing a function description.
+    """
+
+    if not docstring or not docstring.strip():
+        raise ValueError("Docstring is empty. Please provide a docstring with a function description.")
+
     description_lines = []
+    parsed_params = {}
+    returns = None
+    raises = None
+    current_param = None
+    param_description_lines = []
 
     class State:
+        DESCRIPTION = "DESCRIPTION"
         ARGS = "ARGS"
         RETURNS = "RETURNS"
         RAISES = "RAISES"
         END = "END"
 
-    def add_param_comment():
-        """Helper to add current parameter and its description to the parsed comments."""
-        if current_param and description_lines:
-            parsed_comments[current_param] = " ".join(description_lines).strip()
+    state = State.DESCRIPTION
+    lines = docstring.strip().splitlines()
+    lines.append('')  # Add an empty line to ensure the last param is processed
+    iterator = iter(lines)
 
-    state = None
-    for line in docstring.splitlines():
+    for line in iterator:
         stripped_line = line.strip()
 
-        if stripped_line.startswith("Args:"):
+        if stripped_line in ("Args:", "Arguments:"):
             state = State.ARGS
-            current_param = None
-            description_lines = []
             continue
-        elif stripped_line.startswith("Returns:"):
-            add_param_comment()
+        elif stripped_line == "Returns:":
+            if current_param and param_description_lines:
+                parsed_params[current_param] = ' '.join(param_description_lines).strip()
+                current_param = None
+                param_description_lines = []
             state = State.RETURNS
             continue
-        elif stripped_line.startswith("Raises:"):
-            add_param_comment()
+        elif stripped_line == "Raises:":
             state = State.RAISES
             continue
+        elif stripped_line == "" and state == State.ARGS and current_param:
+            parsed_params[current_param] = ' '.join(param_description_lines).strip()
+            current_param = None
+            param_description_lines = []
+            continue
 
-        if state == State.ARGS:
-            if ":" in stripped_line:
-                add_param_comment()
-                param_part, comment_part = stripped_line.split(":", 1)
-                current_param = param_part.split("(")[0].strip()
-                description_lines = [comment_part.strip()]
-            elif current_param:
+        if state == State.DESCRIPTION:
+            if stripped_line:
                 description_lines.append(stripped_line)
+        elif state == State.ARGS:
+            if stripped_line:
+                if ':' in stripped_line:
+                    if current_param and param_description_lines:
+                        parsed_params[current_param] = ' '.join(param_description_lines).strip()
+                    param_parts = stripped_line.split(':', 1)
+                    # Remove type hints in parentheses if any
+                    current_param = param_parts[0].strip().split()[0]  
+                    param_description_lines = [param_parts[1].strip()]
+                else:
+                    param_description_lines.append(stripped_line)
         elif state == State.RETURNS:
-            parsed_comments["return"] = stripped_line
-            state = State.END
+            if stripped_line:
+                if returns is None:
+                    returns = stripped_line
+                else:
+                    returns += ' ' + stripped_line
         elif state == State.RAISES:
-            parsed_comments["raises"] = stripped_line
-            state = State.END
+            if stripped_line:
+                if raises is None:
+                    raises = stripped_line
+                else:
+                    raises += ' ' + stripped_line
 
-    add_param_comment()
+    if current_param and param_description_lines:
+        parsed_params[current_param] = ' '.join(param_description_lines).strip()
 
-    return parsed_comments
+    description = ' '.join(description_lines).strip()
+
+    if not description:
+        raise ValueError("Function description is missing in the docstring. Please provide a function description.")
+
+    return DocstringInfo(description=description, params=parsed_params, returns=returns, raises=raises)
+
+
 
 def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
     """
@@ -71,43 +162,10 @@ def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
     """
     source_lines, _ = inspect.getsourcelines(func)
     dedented_source = dedent(''.join(source_lines))
-
-    parsed_source = ast.parse(dedented_source)
     func_name = func.__name__
 
-    class FunctionBodyExtractor(ast.NodeVisitor):
-        def __init__(self):
-            self.function_body = ''
-            self.indent_unit = 4 
-            self.found = False
-
-        def visit_FunctionDef(self, node: ast.FunctionDef):
-            if not self.found and node.name == func_name:
-                self.found = True
-                self.extract_body(node)
-
-        def extract_body(self, node: ast.FunctionDef):
-            body = node.body
-            # Skip the docstring
-            if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str):
-                body = body[1:]
-            
-            if not body:
-                return 
-
-            start_lineno = body[0].lineno
-            end_lineno = body[-1].end_lineno
-
-            source_lines = dedented_source.splitlines(keepends=True)
-            function_body_lines = source_lines[start_lineno - 1:end_lineno]
-
-            self.function_body = dedent(''.join(function_body_lines)).rstrip('\n')
-
-            indents = [stmt.col_offset for stmt in body if stmt.col_offset is not None]
-            if indents:
-                self.indent_unit = min(indents)
-
-    extractor = FunctionBodyExtractor()
+    extractor = FunctionBodyExtractor(func_name, dedented_source)
+    parsed_source = ast.parse(dedented_source)
     extractor.visit(parsed_source)
 
     return extractor.function_body, extractor.indent_unit
@@ -176,7 +234,7 @@ def process_parameter(
     param_name: str,
     param: inspect.Parameter,
     type_hints: dict[str, Any],
-    docstring_comments: dict[str, str]
+    docstring_info: DocstringInfo
 ) -> str:
     """Processes a single parameter and returns its SQL definition."""
     if param_name in FORBIDDEN_PARAMS:
@@ -197,13 +255,14 @@ def process_parameter(
         error_message = generate_type_hint_error_message(param_name, param_hint, e)
         raise ValueError(error_message) from e
 
-    param_comment = docstring_comments.get(param_name, f"Parameter {param_name}").replace("'", '"')
+    param_comment = docstring_info.params.get(param_name, f"Parameter {param_name}").replace("'", '"')
 
     if param.default is inspect.Parameter.empty:
         return f"{param_name} {sql_type} COMMENT '{param_comment}'"
     else:
         default_value = format_default_value(param.default)
         return f"{param_name} {sql_type} DEFAULT {default_value} COMMENT '{param_comment}'"
+
 
 def assemble_sql_body(
     catalog: str,
@@ -217,19 +276,18 @@ def assemble_sql_body(
     """Assembles the final SQL function body."""
     sql_params_str = ', '.join(sql_params)
     sql_body = f"""
-    CREATE OR REPLACE FUNCTION {catalog}.{schema}.{func_name}({sql_params_str})
-    RETURNS {sql_return_type}
-    LANGUAGE PYTHON
-    COMMENT '{func_comment}'
-    AS $$
+CREATE OR REPLACE FUNCTION {catalog}.{schema}.{func_name}({sql_params_str})
+RETURNS {sql_return_type}
+LANGUAGE PYTHON
+COMMENT '{func_comment}'
+AS $$
 {indented_body}
-    $$;
+$$;
     """
     return sql_body
 
 def generate_sql_function_body(
     func: Callable[..., Any],
-    func_comment: str,
     catalog: str,
     schema: str
 ) -> str:
@@ -238,7 +296,6 @@ def generate_sql_function_body(
 
     Args:
         func: The Python callable function to convert into a UDF.
-        func_comment: A short description for the function.
         catalog: The catalog name.
         schema: The schema name.
 
@@ -252,16 +309,20 @@ def generate_sql_function_body(
 
     sql_return_type = validate_return_type(func_name, type_hints)
 
-    docstring = inspect.getdoc(func) or ""
-    docstring_comments = parse_docstring(docstring)
+    docstring = inspect.getdoc(func)
+    if not docstring:
+        raise ValueError(f"Function '{func_name}' must have a docstring with a description.")
+    docstring_info = parse_docstring(docstring)
 
     sql_params = []
     for param_name, param in signature.parameters.items():
-        sql_param = process_parameter(param_name, param, type_hints, docstring_comments)
+        sql_param = process_parameter(param_name, param, type_hints, docstring_info)
         sql_params.append(sql_param)
 
     function_body, indent_unit = extract_function_body(func)
     indented_body = indent(function_body, ' ' * indent_unit)
+
+    func_comment = docstring_info.description.replace("'", '"')
 
     sql_body = assemble_sql_body(
         catalog, schema, func_name, sql_params, sql_return_type, func_comment, indented_body
