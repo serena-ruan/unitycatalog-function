@@ -279,6 +279,7 @@ def python_function_with_binary_input() -> PythonFunctionInputOutput:
 def python_function_with_interval_input() -> PythonFunctionInputOutput:
     def function_with_interval_input(s: datetime.timedelta) -> str:
         """Python function with interval input"""
+        import datetime
         return (datetime.datetime(2024, 8, 19) - s).isoformat()
 
     return PythonFunctionInputOutput(
@@ -338,13 +339,13 @@ def python_function_with_map_input() -> PythonFunctionInputOutput:
 
 def python_function_with_decimal_input() -> PythonFunctionInputOutput:
     def function_with_decimal_input(s: Decimal) -> str:
-        """Python function with decimal input"""
-        return str(s)
+        """Python function with decimal input."""
+        return format(s, '.20g')
 
     return PythonFunctionInputOutput(
         func=function_with_decimal_input,
-        inputs=[{"s": Decimal("123.45")}],
-        output="123.45",
+        inputs=[{"s": Decimal("123.45123456789457000")}],
+        output="123.45123456789457000",
     )
 
 
@@ -974,7 +975,7 @@ def test_create_and_execute_python_function(client: DatabricksFunctionClient):
         return str(x)
     
     with create_python_function_and_cleanup(client, func=simple_func) as func_obj:
-        result = client.execute_function(func_name.full_function_name, {"x": 10})
+        result = client.execute_function(func_obj.full_function_name, {"x": 10})
         assert result.value == "10"
 
 def test_create_python_function_with_invalid_arguments(client: DatabricksFunctionClient):
@@ -1070,7 +1071,7 @@ def test_function_with_list_of_int_return(client: DatabricksFunctionClient):
 
     with create_python_function_and_cleanup(client, func=func_returning_list) as func_obj:
         result = client.execute_function(func_obj.full_function_name, {"a": 3})
-        assert result.value == "0,1,2"
+        assert result.value == "[0, 1, 2]"
 
 @requires_databricks
 def test_function_with_dict_of_string_to_int_return(client: DatabricksFunctionClient):
@@ -1088,7 +1089,7 @@ def test_function_with_dict_of_string_to_int_return(client: DatabricksFunctionCl
 
     with create_python_function_and_cleanup(client, func=func_returning_map) as func_obj:
         result = client.execute_function(func_obj.full_function_name, {"a": 3})
-        assert result.value == "key_0 => 0,key_1 => 1,key_2 => 2"
+        assert result.value == "{'key_0': 0, 'key_1': 1, 'key_2': 2}"
 
 def test_function_with_invalid_list_return_type(client: DatabricksFunctionClient):
     def func_with_invalid_list_return(a: int) -> List:

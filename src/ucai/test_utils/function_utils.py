@@ -24,7 +24,7 @@ def named_func_name(func: Callable[..., Any]) -> str:
     This utility is used for the python function callable API wherein the name of the
     function that is created within Unity Catalog is based on the input callable's name.
     """
-    return f"{CATALOG}.{SCHEMA}.test_{func.__name__}"
+    return f"{CATALOG}.{SCHEMA}.{func.__name__}"
 
 @contextmanager
 def generate_func_name_and_cleanup(client: DatabricksFunctionClient):
