@@ -31,7 +31,7 @@ jobs:
       - name: Lint YAML files with yamllint
         run: yamllint .
 
-  test:
+  core_test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
