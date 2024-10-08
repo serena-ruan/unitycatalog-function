@@ -28,6 +28,7 @@ jobs:
         run: |
           ruff check .
           ruff format .
+          git diff --exit-code
       - name: Lint YAML files with yamllint
         run: yamllint .
 
