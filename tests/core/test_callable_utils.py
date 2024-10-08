@@ -704,7 +704,7 @@ def test_function_with_empty_docstring():
 
     with pytest.raises(
         ValueError,
-        match="Docstring is empty. Please provide a docstring with a function description.",
+        match="Function 'func_with_empty_docstring' must have a docstring with a description.",
     ):
         generate_sql_function_body(func_with_empty_docstring, "test_catalog", "test_schema")
 
@@ -1255,6 +1255,7 @@ def test_function_with_mixed_args():
 
 
 def test_function_with_2_space_indentation():
+    # fmt: off
     def two_space_indented_func(a: int) -> str:
         """
         A function with 2-space indentation.
@@ -1265,12 +1266,12 @@ def test_function_with_2_space_indentation():
         Returns:
             str: The string representation of the parameter
         """
-
+        
         def nested_func(b: int) -> int:
-            return b + a
-
+          return b + a
+        
         return str(nested_func(a))
-
+    # fmt: on
     # Generating SQL from the function
     sql_body = generate_sql_function_body(
         two_space_indented_func, "test_catalog", "test_schema", True
@@ -1321,6 +1322,7 @@ LANGUAGE PYTHON
 COMMENT 'A function that imports a module and returns a result.'
 AS $$
     import math
+
     return str(math.sqrt(a))
 $$;
     """

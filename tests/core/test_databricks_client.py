@@ -1137,3 +1137,44 @@ def test_function_with_union_return_type(client: DatabricksFunctionClient):
         ),
     ):
         client.create_python_function(func=func_with_union_return, catalog=CATALOG, schema=SCHEMA)
+
+
+@requires_databricks
+def test_replace_existing_function(client: DatabricksFunctionClient):
+    def simple_func(x: int) -> str:
+        """Test function that returns the string version of x."""
+        return str(x)
+
+    # Create the function for the first time
+    with create_python_function_and_cleanup(client, func=simple_func) as func_obj:
+        result = client.execute_function(func_obj.full_function_name, {"x": 42})
+        assert result.value == "42"
+
+        # Modify the function definition
+        def simple_func_modified(x: int) -> str:
+            """Modified function that returns 'Modified: ' plus the string version of x."""
+            return f"Modified: {x}"
+
+        # Replace the existing function
+        client.create_python_function(
+            func=simple_func_modified, catalog=CATALOG, schema=SCHEMA, replace=True
+        )
+
+        # Execute the function again to verify it has been replaced
+        result = client.execute_function(func_obj.full_function_name, {"x": 42})
+        assert result.value == "Modified: 42"
+
+
+@requires_databricks
+def test_create_function_without_replace(client: DatabricksFunctionClient):
+    def simple_func(x: int) -> str:
+        """Test function that returns the string version of x."""
+        return str(x)
+
+    # Create the function for the first time
+    with create_python_function_and_cleanup(client, func=simple_func):
+        # Attempt to create the same function again without replace
+        with pytest.raises(RuntimeError, match="Failed to create function for simple_func"):
+            client.create_python_function(
+                func=simple_func, catalog=CATALOG, schema=SCHEMA, replace=False
+            )
