@@ -1,18 +1,23 @@
 import base64
-import inspect
 import json
 import logging
-import os
 import re
 import time
 from dataclasses import dataclass
 from decimal import Decimal
 from io import StringIO
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from typing_extensions import override
 
 from ucai.core.client import BaseFunctionClient, FunctionExecutionResult
+from ucai.core.envs.databricks_env_vars import (
+    EXECUTE_FUNCTION_BYTE_LIMIT,
+    EXECUTE_FUNCTION_ROW_LIMIT,
+    EXECUTE_FUNCTION_WAIT_TIMEOUT,
+    UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT,
+    UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT,
+)
 from ucai.core.paged_list import PagedList
 from ucai.core.utils.callable_utils import generate_sql_function_body
 from ucai.core.utils.type_utils import (
@@ -30,17 +35,6 @@ if TYPE_CHECKING:
         FunctionParameterInfo,
     )
     from databricks.sdk.service.sql import StatementParameterListItem, StatementState
-
-EXECUTE_FUNCTION_ARG_NAME = "__execution_args__"
-DEFAULT_EXECUTE_FUNCTION_ARGS = {
-    "wait_timeout": "30s",
-    "row_limit": 100,
-    "byte_limit": 4096,
-}
-UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT = "UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT"
-DEFAULT_UC_AI_CLIENT_EXECUTION_TIMEOUT = "120"
-UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT = "UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT"
-DEFAULT_UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT = "100"
 
 DATABRICKS_CONNECT_SUPPORTED_VERSION = "15.1.0"
 DATABRICKS_CONNECT_IMPORT_ERROR_MESSAGE = (
@@ -507,48 +501,14 @@ class DatabricksFunctionClient(BaseFunctionClient):
 
         _logger.info("Executing function using client warehouse_id.")
 
-        passed_execute_statement_args = parameters.pop(EXECUTE_FUNCTION_ARG_NAME, {})
-        if (
-            passed_execute_statement_args
-            and function_info.input_params
-            and function_info.input_params.parameters
-            and any(
-                p.name == EXECUTE_FUNCTION_ARG_NAME for p in function_info.input_params.parameters
-            )
-        ):
-            raise ValueError(
-                "Parameter name conflicts with the reserved argument name for executing "
-                f"functions: {EXECUTE_FUNCTION_ARG_NAME}. "
-                f"Please rename the parameter {EXECUTE_FUNCTION_ARG_NAME}."
-            )
-
-        # avoid modifying the original dict
-        execute_statement_args = {**DEFAULT_EXECUTE_FUNCTION_ARGS}
-        allowed_execute_statement_args = inspect.signature(
-            self.client.statement_execution.execute_statement
-        ).parameters
-        if not any(
-            p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
-            for p in allowed_execute_statement_args.values()
-        ):
-            invalid_params: Set[str] = set()
-            for k, v in passed_execute_statement_args.items():
-                if k in allowed_execute_statement_args:
-                    execute_statement_args[k] = v
-                else:
-                    invalid_params.add(k)
-            if invalid_params:
-                raise ValueError(
-                    f"Invalid parameters for executing functions: {invalid_params}. "
-                    f"Allowed parameters are: {allowed_execute_statement_args.keys()}."
-                )
-
         parametrized_statement = get_execute_function_sql_stmt(function_info, parameters)
         response = self.client.statement_execution.execute_statement(
             statement=parametrized_statement.statement,
             warehouse_id=self.warehouse_id,
             parameters=parametrized_statement.parameters,
-            **execute_statement_args,  # type: ignore
+            wait_timeout=EXECUTE_FUNCTION_WAIT_TIMEOUT.get(),
+            row_limit=int(EXECUTE_FUNCTION_ROW_LIMIT.get()),
+            byte_limit=int(EXECUTE_FUNCTION_BYTE_LIMIT.get()),
         )
         # TODO: the first time the warehouse is invoked, it might take longer than
         # expected, so it's still pending even after 6 times of retry;
@@ -559,12 +519,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
             _logger.info("Retrying to get statement execution status...")
             wait_time = 0
             retry_cnt = 0
-            client_execution_timeout = int(
-                os.environ.get(
-                    UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT,
-                    DEFAULT_UC_AI_CLIENT_EXECUTION_TIMEOUT,
-                )
-            )
+            client_execution_timeout = int(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT.get())
             while wait_time < client_execution_timeout:
                 wait = min(2**retry_cnt, client_execution_timeout - wait_time)
                 time.sleep(wait)
@@ -578,8 +533,8 @@ class DatabricksFunctionClient(BaseFunctionClient):
                 return FunctionExecutionResult(
                     error=f"Statement execution is still {response.status.state.value.lower()} after {wait_time} "
                     "seconds. Please increase the wait_timeout argument for executing "
-                    f"the function or increase {UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT} environment "
-                    f"variable for increasing retrying time, default value is {DEFAULT_UC_AI_CLIENT_EXECUTION_TIMEOUT} seconds."
+                    f"the function or increase {UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT.name} environment "
+                    f"variable for increasing retrying time, default value is {UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT.default_value} seconds."
                 )
         if response.status is None:
             return FunctionExecutionResult(error=f"Statement execution failed: {response}")
@@ -642,12 +597,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
             if is_scalar(function_info):
                 return FunctionExecutionResult(format="SCALAR", value=str(result.collect()[0][0]))
             else:
-                row_limit = int(
-                    os.environ.get(
-                        UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT,
-                        DEFAULT_UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT,
-                    )
-                )
+                row_limit = int(UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT.get())
                 truncated = result.count() > row_limit
                 pdf = result.limit(row_limit).toPandas()
                 csv_buffer = StringIO()
@@ -659,12 +609,6 @@ class DatabricksFunctionClient(BaseFunctionClient):
             raise RuntimeError(
                 f"Failed to execute function with function name: {function_info.full_name}"
             ) from e
-
-    @override
-    def validate_input_params(self, input_params: Any, parameters: Dict[str, Any]) -> None:
-        super().validate_input_params(
-            input_params, {k: v for k, v in parameters.items() if k != EXECUTE_FUNCTION_ARG_NAME}
-        )
 
     @override
     def to_dict(self):
