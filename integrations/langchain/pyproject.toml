@@ -21,7 +21,9 @@ dev = [
   # temp needed before ucai-core[databricks] is released
   "databricks-sdk>=0.32.0",
   "databricks-connect",
-  "ruff==0.6.4"
+  "ruff==0.6.4",
+  "langgraph",
+  "langchain_databricks",
 ]
 
 [build-system]

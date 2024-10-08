@@ -58,7 +58,7 @@ DATABRICKS_CONNECT_VERSION_NOT_SUPPORTED_ERROR_MESSAGE = (
 _logger = logging.getLogger(__name__)
 
 
-def get_default_databricks_workspace_client() -> "WorkspaceClient":
+def get_default_databricks_workspace_client(profile=None) -> "WorkspaceClient":
     try:
         from databricks.sdk import WorkspaceClient
     except ImportError as e:
@@ -67,7 +67,7 @@ def get_default_databricks_workspace_client() -> "WorkspaceClient":
             "If you want to use databricks backend then "
             "please install it with `pip install databricks-sdk`."
         ) from e
-    return WorkspaceClient()
+    return WorkspaceClient(profile=profile)
 
 
 def _validate_databricks_connect_available() -> bool:
@@ -140,7 +140,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
                 not needed if serverless is enabled in the databricks workspace. Defaults to None.
             profile: The configuration profile to use for databricks connect. Defaults to None.
         """
-        self.client = client or get_default_databricks_workspace_client()
+        self.client = client or get_default_databricks_workspace_client(profile=profile)
         self.warehouse_id = warehouse_id
         self._validate_warehouse_type()
         self.profile = profile
