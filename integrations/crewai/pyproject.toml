@@ -10,7 +10,7 @@ license = { text="MIT" }
 requires-python = ">=3.10"
 dependencies = [
     "crewai>=0.67.1",
-    { path = "src/ucai/core", develop = true }
+    "ucai-core",
 ]
 
 [project.optional-dependencies]
