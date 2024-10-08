@@ -6,9 +6,7 @@ from typing import Generator, NamedTuple, Optional
 from ucai.core.databricks import DatabricksFunctionClient
 from ucai.core.utils.function_processing_utils import get_tool_name
 
-# TODO
-# CATALOG = "integration_testing"
-CATALOG = "main"
+CATALOG = "integration_testing"
 
 _logger = logging.getLogger(__name__)
 
