@@ -19,7 +19,7 @@ from ucai.core.utils.type_utils import (
     convert_timedelta_to_interval_str,
     is_time_type,
 )
-from ucai.core.utils.validation_utils import validate_param, validate_full_function_name
+from ucai.core.utils.validation_utils import validate_full_function_name, validate_param
 
 if TYPE_CHECKING:
     from databricks.sdk import WorkspaceClient
