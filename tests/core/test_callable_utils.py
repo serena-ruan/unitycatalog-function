@@ -9,13 +9,14 @@ from ucai.core.utils.callable_utils import generate_sql_function_body
 # Tests for Simple Functions and Docstrings
 # ---------------------------
 
+
 def test_simple_function_no_docstring():
     def simple_func(a: int, b: int) -> int:
         """Simple addition"""
         return a + b
 
     sql_body = generate_sql_function_body(simple_func, "test_catalog", "test_schema", True)
-    
+
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.simple_func(a INTEGER COMMENT 'Parameter a', b INTEGER COMMENT 'Parameter b')
 RETURNS INTEGER
@@ -26,6 +27,7 @@ AS $$
 $$;
     """
     assert sql_body.strip() == expected_sql.strip()
+
 
 def test_function_with_multiline_docstring():
     def multiline_docstring_func(a: int, b: int) -> str:
@@ -38,14 +40,14 @@ def test_function_with_multiline_docstring():
         Args:
             a: The first number
             b: The second number
-        
+
         Returns:
             str: The string representation of the sum of a and b
         """
         return str(a + b)
 
     sql_body = generate_sql_function_body(multiline_docstring_func, "test_catalog", "test_schema")
-    
+
     expected_sql = """
 CREATE FUNCTION test_catalog.test_schema.multiline_docstring_func(a INTEGER COMMENT 'The first number', b INTEGER COMMENT 'The second number')
 RETURNS STRING
@@ -57,6 +59,7 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 def test_function_with_detailed_docstring():
     def detailed_func(a: int, b: int) -> int:
         """
@@ -65,10 +68,10 @@ def test_function_with_detailed_docstring():
         Args:
             a: The first number
             b: The second number
-        
+
         Returns:
             int: The sum of a and b
-        
+
         Raises:
             ValueError: If a or b are negative
         """
@@ -77,7 +80,7 @@ def test_function_with_detailed_docstring():
         return a + b
 
     sql_body = generate_sql_function_body(detailed_func, "test_catalog", "test_schema", True)
-    
+
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.detailed_func(a INTEGER COMMENT 'The first number', b INTEGER COMMENT 'The second number')
 RETURNS INTEGER
@@ -90,6 +93,7 @@ AS $$
 $$;
 """
     assert sql_body.strip() == expected_sql.strip()
+
 
 def test_function_with_google_docstring():
     def my_function(a: int, b: str) -> float:
@@ -118,11 +122,9 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 def test_function_with_multiline_argument_description():
-    def my_multiline_arg_function(
-        a: int, 
-        b: str
-    ) -> str:
+    def my_multiline_arg_function(a: int, b: str) -> str:
         """
         This function has a multi-line argument list.
 
@@ -137,8 +139,10 @@ def test_function_with_multiline_argument_description():
         """
         return f"{a}-{b}"
 
-    sql_body = generate_sql_function_body(my_multiline_arg_function, "test_catalog", "test_schema", True)
-    
+    sql_body = generate_sql_function_body(
+        my_multiline_arg_function, "test_catalog", "test_schema", True
+    )
+
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.my_multiline_arg_function(a INTEGER COMMENT 'The first argument, which is an integer. The integer is guaranteed to be positive.', b STRING COMMENT 'The second argument, which is a string. The string should be more than 100 characters long.')
 RETURNS STRING
@@ -150,6 +154,7 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 def test_function_with_extra_docstring_params_ignored():
     def func_with_extra_param_in_docstring(a: int) -> str:
         """
@@ -158,7 +163,7 @@ def test_function_with_extra_docstring_params_ignored():
         Args:
             a: The first argument
             b: An extra parameter not in function signature
-        
+
         Returns:
             str: The string representation of the first argument
         """
@@ -166,11 +171,9 @@ def test_function_with_extra_docstring_params_ignored():
 
     # We expect the generated SQL to ignore 'b' since it's not in the function signature
     sql_body = generate_sql_function_body(
-        func_with_extra_param_in_docstring,
-        "test_catalog",
-        "test_schema"
+        func_with_extra_param_in_docstring, "test_catalog", "test_schema"
     )
-    
+
     expected_sql = """
 CREATE FUNCTION test_catalog.test_schema.func_with_extra_param_in_docstring(a INTEGER COMMENT 'The first argument')
 RETURNS STRING
@@ -180,12 +183,14 @@ AS $$
     return str(a)
 $$;
     """
-    
+
     assert sql_body.strip() == expected_sql.strip()
+
 
 # ---------------------------
 # Tests for Nested Functions and Classes
 # ---------------------------
+
 
 def test_function_with_nested():
     def outer_func(x: int, y: int) -> str:
@@ -195,17 +200,18 @@ def test_function_with_nested():
         Args:
             x: The x parameter
             y: The y parameter
-        
+
         Returns:
             str: A string representation of the sum of x and y
         """
+
         def inner_func(a: int) -> int:
             return a + y
-        
+
         return str(inner_func(x))
 
     sql_body = generate_sql_function_body(outer_func, "test_catalog", "test_schema")
-    
+
     expected_sql = """
 CREATE FUNCTION test_catalog.test_schema.outer_func(x INTEGER COMMENT 'The x parameter', y INTEGER COMMENT 'The y parameter')
 RETURNS STRING
@@ -220,6 +226,7 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 def test_function_with_class():
     def func_with_class(a: int) -> str:
         """
@@ -227,10 +234,11 @@ def test_function_with_class():
 
         Args:
             a: The parameter a
-        
+
         Returns:
             str: A string representation of the object created
         """
+
         class Example:
             def __init__(self, val: int):
                 self.val = val
@@ -242,7 +250,7 @@ def test_function_with_class():
         return str(obj.double())
 
     sql_body = generate_sql_function_body(func_with_class, "test_catalog", "test_schema", True)
-    
+
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_class(a INTEGER COMMENT 'The parameter a')
 RETURNS STRING
@@ -262,6 +270,7 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 def test_function_with_lambda():
     def lambda_func(x: int) -> str:
         """
@@ -269,7 +278,7 @@ def test_function_with_lambda():
 
         Args:
             x: The input value
-        
+
         Returns:
             str: A string representation of the lambda result
         """
@@ -277,7 +286,7 @@ def test_function_with_lambda():
         return str(square(x))
 
     sql_body = generate_sql_function_body(lambda_func, "test_catalog", "test_schema", True)
-    
+
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.lambda_func(x INTEGER COMMENT 'The input value')
 RETURNS STRING
@@ -290,6 +299,7 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 def test_function_with_heavily_nested_structure():
     def func_with_heavily_nested(a: List[Dict[str, List[Dict[str, int]]]]) -> str:
         """
@@ -298,17 +308,13 @@ def test_function_with_heavily_nested_structure():
         Args:
             a: A list of dictionaries where the key is a string and the value is a list of dictionaries
                with string keys and integer values.
-        
+
         Returns:
             str: A string representation of the nested structure
         """
         return str(a)
 
-    sql_body = generate_sql_function_body(
-        func_with_heavily_nested,
-        "test_catalog",
-        "test_schema"
-    )
+    sql_body = generate_sql_function_body(func_with_heavily_nested, "test_catalog", "test_schema")
 
     expected_sql = """
 CREATE FUNCTION test_catalog.test_schema.func_with_heavily_nested(a ARRAY<MAP<STRING, ARRAY<MAP<STRING, INTEGER>>>> COMMENT 'A list of dictionaries where the key is a string and the value is a list of dictionaries with string keys and integer values.')
@@ -319,12 +325,14 @@ AS $$
     return str(a)
 $$;
     """
-    
+
     assert sql_body.strip() == expected_sql.strip()
+
 
 # ---------------------------
 # Tests for Decorators
 # ---------------------------
+
 
 def test_function_with_decorator():
     @staticmethod
@@ -335,14 +343,14 @@ def test_function_with_decorator():
         Args:
             a: First integer
             b: Second integer
-        
+
         Returns:
             int: Sum of a and b
         """
         return a + b
 
     sql_body = generate_sql_function_body(decorated_func, "test_catalog", "test_schema", True)
-    
+
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.decorated_func(a INTEGER COMMENT 'First integer', b INTEGER COMMENT 'Second integer')
 RETURNS INTEGER
@@ -354,9 +362,11 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 # ---------------------------
 # Tests for Error Handling
 # ---------------------------
+
 
 def test_function_with_try_except():
     def try_except_func(a: int, b: int) -> int:
@@ -366,7 +376,7 @@ def test_function_with_try_except():
         Args:
             a: First number
             b: Second number
-        
+
         Returns:
             int: Sum of a and b
         """
@@ -376,7 +386,7 @@ def test_function_with_try_except():
             raise ValueError(f"Invalid operation") from e
 
     sql_body = generate_sql_function_body(try_except_func, "test_catalog", "test_schema")
-    
+
     expected_sql = """
 CREATE FUNCTION test_catalog.test_schema.try_except_func(a INTEGER COMMENT 'First number', b INTEGER COMMENT 'Second number')
 RETURNS INTEGER
@@ -391,6 +401,7 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 def test_function_with_multiple_return_paths():
     def multiple_return_func(a: int) -> str:
         """A function with multiple return paths."""
@@ -400,7 +411,7 @@ def test_function_with_multiple_return_paths():
             return "Negative"
 
     sql_body = generate_sql_function_body(multiple_return_func, "test_catalog", "test_schema", True)
-    
+
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.multiple_return_func(a INTEGER COMMENT 'Parameter a')
 RETURNS STRING
@@ -415,6 +426,7 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 def test_function_returning_none():
     def func_returning_none(a: int) -> None:
         """
@@ -425,8 +437,12 @@ def test_function_returning_none():
         """
         return None
 
-    with pytest.raises(ValueError, match=" in return type for function 'func_returning_none': <class 'NoneType'>. Unsupported return type: <class 'NoneType'>."):
+    with pytest.raises(
+        ValueError,
+        match=" in return type for function 'func_returning_none': <class 'NoneType'>. Unsupported return type: <class 'NoneType'>.",
+    ):
         generate_sql_function_body(func_returning_none, "test_catalog", "test_schema")
+
 
 def test_function_returning_any():
     def func_returning_any(a: int) -> Any:
@@ -438,8 +454,12 @@ def test_function_returning_any():
         """
         return a
 
-    with pytest.raises(ValueError, match="Error in return type for function 'func_returning_any': typing.Any. 'Any' type is not supported. Please specify a concrete return type."):
+    with pytest.raises(
+        ValueError,
+        match="Error in return type for function 'func_returning_any': typing.Any. 'Any' type is not supported. Please specify a concrete return type.",
+    ):
         generate_sql_function_body(func_returning_any, "test_catalog", "test_schema")
+
 
 def test_function_returning_union():
     def func_returning_union(a: int) -> Union[int, str]:
@@ -448,7 +468,7 @@ def test_function_returning_union():
 
         Args:
             a: An integer
-        
+
         Returns:
             Union[int, str]: Either an integer or a string
         """
@@ -456,12 +476,19 @@ def test_function_returning_union():
             return a
         return str(a)
 
-    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_returning_union': typing.Union[int, str]. Union types are not supported in return types.")):
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Error in return type for function 'func_returning_union': typing.Union[int, str]. Union types are not supported in return types."
+        ),
+    ):
         generate_sql_function_body(func_returning_union, "test_catalog", "test_schema")
+
 
 # ---------------------------
 # Tests for Input Types
 # ---------------------------
+
 
 def test_function_with_list_input():
     def func_with_list(a: List[int]) -> str:
@@ -470,14 +497,14 @@ def test_function_with_list_input():
 
         Args:
             a: A list of integers
-        
+
         Returns:
             str: A string representation of the list
         """
         return str(a)
 
     sql_body = generate_sql_function_body(func_with_list, "test_catalog", "test_schema", True)
-    
+
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_list(a ARRAY<INTEGER> COMMENT 'A list of integers')
 RETURNS STRING
@@ -489,6 +516,7 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 def test_function_with_map_input():
     def func_with_map(a: Dict[str, int]) -> str:
         """
@@ -496,14 +524,14 @@ def test_function_with_map_input():
 
         Args:
             a: A map with string keys and integer values
-        
+
         Returns:
             str: A string representation of the map
         """
         return str(a)
 
     sql_body = generate_sql_function_body(func_with_map, "test_catalog", "test_schema")
-    
+
     expected_sql = """
 CREATE FUNCTION test_catalog.test_schema.func_with_map(a MAP<STRING, INTEGER> COMMENT 'A map with string keys and integer values')
 RETURNS STRING
@@ -515,6 +543,7 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 def test_function_with_dict_list_input():
     def func_with_dict_list(a: Dict[str, List[str]]) -> str:
         """
@@ -522,7 +551,7 @@ def test_function_with_dict_list_input():
 
         Args:
             a: A dictionary with string keys and list of string values
-        
+
         Returns:
             str: A string representation of the dictionary
         """
@@ -541,6 +570,7 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 def test_function_with_list_of_dict_input():
     def func_with_list_of_map(a: List[Dict[str, int]]) -> str:
         """
@@ -548,7 +578,7 @@ def test_function_with_list_of_dict_input():
 
         Args:
             a: A list of maps with string keys and integer values
-        
+
         Returns:
             str: A string representation of the list of maps
         """
@@ -567,9 +597,11 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 # ---------------------------
 # Tests for Return Types
 # ---------------------------
+
 
 def test_function_with_list_return():
     def func_with_list_return() -> List[int]:
@@ -581,8 +613,10 @@ def test_function_with_list_return():
         """
         return [1, 2, 3]
 
-    sql_body = generate_sql_function_body(func_with_list_return, "test_catalog", "test_schema", True)
-    
+    sql_body = generate_sql_function_body(
+        func_with_list_return, "test_catalog", "test_schema", True
+    )
+
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_list_return()
 RETURNS ARRAY<INTEGER>
@@ -593,6 +627,7 @@ AS $$
 $$;
     """
     assert sql_body.strip() == expected_sql.strip()
+
 
 def test_function_with_map_return():
     def func_with_map_return() -> Dict[str, int]:
@@ -605,7 +640,7 @@ def test_function_with_map_return():
         return {"a": 1, "b": 2}
 
     sql_body = generate_sql_function_body(func_with_map_return, "test_catalog", "test_schema")
-    
+
     expected_sql = """
 CREATE FUNCTION test_catalog.test_schema.func_with_map_return()
 RETURNS MAP<STRING, INTEGER>
@@ -616,6 +651,7 @@ AS $$
 $$;
     """
     assert sql_body.strip() == expected_sql.strip()
+
 
 def test_function_with_complex_return_type():
     def complex_return_func() -> dict:
@@ -628,7 +664,7 @@ def test_function_with_complex_return_type():
         return {"numbers": [1, 2, 3]}
 
     sql_body = generate_sql_function_body(complex_return_func, "test_catalog", "test_schema", True)
-    
+
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.complex_return_func()
 RETURNS MAP
@@ -640,38 +676,42 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 # ---------------------------
 # Tests for Missing or Incomplete Docstrings
 # ---------------------------
 
+
 def test_function_without_docstring():
     """Test that a function without a docstring raises an exception."""
+
     def func_without_docstring(a: int, b: int) -> int:
         return a + b
 
     with pytest.raises(
         ValueError,
-        match="Function 'func_without_docstring' must have a docstring with a description."
+        match="Function 'func_without_docstring' must have a docstring with a description.",
     ):
         generate_sql_function_body(func_without_docstring, "test_catalog", "test_schema")
 
 
 def test_function_with_empty_docstring():
     """Test that a function with an empty docstring raises an exception."""
+
     def func_with_empty_docstring(a: int, b: int) -> int:
-        """
-        """
+        """ """
         return a + b
 
     with pytest.raises(
         ValueError,
-        match="Docstring is empty. Please provide a docstring with a function description."
+        match="Docstring is empty. Please provide a docstring with a function description.",
     ):
         generate_sql_function_body(func_with_empty_docstring, "test_catalog", "test_schema")
 
 
 def test_function_with_docstring_no_description():
     """Test that a function with no description in the docstring raises an exception."""
+
     def func_with_no_description(a: int, b: int) -> int:
         """
         Args:
@@ -685,7 +725,7 @@ def test_function_with_docstring_no_description():
 
     with pytest.raises(
         ValueError,
-        match="Function description is missing in the docstring. Please provide a function description."
+        match="Function description is missing in the docstring. Please provide a function description.",
     ):
         generate_sql_function_body(func_with_no_description, "test_catalog", "test_schema")
 
@@ -694,6 +734,7 @@ def test_function_with_docstring_no_description():
 # Tests for Invalid Types
 # ---------------------------
 
+
 def test_function_with_invalid_list_type():
     def func_with_invalid_list(a: List[Any]) -> str:
         """
@@ -701,14 +742,20 @@ def test_function_with_invalid_list_type():
 
         Args:
             a: A list of any type
-        
+
         Returns:
             str: A string representation of the list
         """
         return str(a)
 
-    with pytest.raises(ValueError, match=re.escape("Error in parameter 'a': List type requires a specific element type. Please define the internal type for the list, e.g., List[int]. Original error: Unsupported Python type: typing.Any is not allowed. Please specify a concrete type.")):
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Error in parameter 'a': List type requires a specific element type. Please define the internal type for the list, e.g., List[int]. Original error: Unsupported Python type: typing.Any is not allowed. Please specify a concrete type."
+        ),
+    ):
         generate_sql_function_body(func_with_invalid_list, "test_catalog", "test_schema")
+
 
 def test_function_with_invalid_map_type():
     def func_with_invalid_map(a: Dict[str, Any]) -> str:
@@ -717,14 +764,20 @@ def test_function_with_invalid_map_type():
 
         Args:
             a: A map with string keys and any values
-        
+
         Returns:
             str: A string representation of the map
         """
         return str(a)
 
-    with pytest.raises(ValueError, match=re.escape("Error in parameter 'a': Dict type requires both key and value types. Please define the internal types for the dict, e.g., Dict[str, int]. Original error: Unsupported Python type: typing.Any is not allowed. Please specify a concrete type.")):
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Error in parameter 'a': Dict type requires both key and value types. Please define the internal types for the dict, e.g., Dict[str, int]. Original error: Unsupported Python type: typing.Any is not allowed. Please specify a concrete type."
+        ),
+    ):
         generate_sql_function_body(func_with_invalid_map, "test_catalog", "test_schema")
+
 
 def test_function_with_invalid_list_return():
     def func_with_invalid_list_return() -> List[Any]:
@@ -736,8 +789,14 @@ def test_function_with_invalid_list_return():
         """
         return [1, "string", True]
 
-    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_with_invalid_list_return': typing.List[typing.Any]. Unsupported return type: typing.List[typing.Any].")):
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Error in return type for function 'func_with_invalid_list_return': typing.List[typing.Any]. Unsupported return type: typing.List[typing.Any]."
+        ),
+    ):
         generate_sql_function_body(func_with_invalid_list_return, "test_catalog", "test_schema")
+
 
 def test_function_with_invalid_map_return():
     def func_with_invalid_map_return() -> Dict[str, Any]:
@@ -749,8 +808,14 @@ def test_function_with_invalid_map_return():
         """
         return {"a": 1, "b": "string"}
 
-    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_with_invalid_map_return': typing.Dict[str, typing.Any]. Unsupported return type: typing.Dict[str, typing.Any].")):
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Error in return type for function 'func_with_invalid_map_return': typing.Dict[str, typing.Any]. Unsupported return type: typing.Dict[str, typing.Any]."
+        ),
+    ):
         generate_sql_function_body(func_with_invalid_map_return, "test_catalog", "test_schema")
+
 
 def test_function_with_plain_list_type():
     def func_with_plain_list_type(a: List) -> str:
@@ -765,12 +830,14 @@ def test_function_with_plain_list_type():
         """
         return str(a)
 
-    with pytest.raises(ValueError, match=re.escape("Error in parameter 'a': List type requires a specific element type. Please define the internal type for the list, e.g., List[int]. Original error: Unsupported Python type: typing.List or typing.Tuple requires an element type.")):
-        generate_sql_function_body(
-            func_with_plain_list_type,
-            "test_catalog",
-            "test_schema"
-        )
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Error in parameter 'a': List type requires a specific element type. Please define the internal type for the list, e.g., List[int]. Original error: Unsupported Python type: typing.List or typing.Tuple requires an element type."
+        ),
+    ):
+        generate_sql_function_body(func_with_plain_list_type, "test_catalog", "test_schema")
+
 
 def test_function_with_plain_dict_type():
     def func_with_plain_dict_type(a: Dict) -> str:
@@ -785,12 +852,14 @@ def test_function_with_plain_dict_type():
         """
         return str(a)
 
-    with pytest.raises(ValueError, match=re.escape("Dict type requires both key and value types. Please define the internal types for the dict, e.g., Dict[str, int]. Original error: Unsupported Python type: typing.Dict requires key and value types.")):
-        generate_sql_function_body(
-            func_with_plain_dict_type,
-            "test_catalog",
-            "test_schema"
-        )
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Dict type requires both key and value types. Please define the internal types for the dict, e.g., Dict[str, int]. Original error: Unsupported Python type: typing.Dict requires key and value types."
+        ),
+    ):
+        generate_sql_function_body(func_with_plain_dict_type, "test_catalog", "test_schema")
+
 
 def test_function_with_plain_list_return_type():
     def func_with_plain_list_return() -> List:
@@ -802,12 +871,14 @@ def test_function_with_plain_list_return_type():
         """
         return [1, 2, 3]
 
-    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_with_plain_list_return': typing.List. Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int].")):
-        generate_sql_function_body(
-            func_with_plain_list_return,
-            "test_catalog",
-            "test_schema"
-        )
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Error in return type for function 'func_with_plain_list_return': typing.List. Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int]."
+        ),
+    ):
+        generate_sql_function_body(func_with_plain_list_return, "test_catalog", "test_schema")
+
 
 def test_function_with_plain_dict_return_type():
     def func_with_plain_dict_return() -> Dict:
@@ -819,12 +890,14 @@ def test_function_with_plain_dict_return_type():
         """
         return {"key": "value"}
 
-    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_with_plain_dict_return': typing.Dict. Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int].")):
-        generate_sql_function_body(
-            func_with_plain_dict_return,
-            "test_catalog",
-            "test_schema"
-        )
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Error in return type for function 'func_with_plain_dict_return': typing.Dict. Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int]."
+        ),
+    ):
+        generate_sql_function_body(func_with_plain_dict_return, "test_catalog", "test_schema")
+
 
 def test_function_with_unsupported_return_type():
     class CustomType:
@@ -836,6 +909,7 @@ def test_function_with_unsupported_return_type():
     with pytest.raises(ValueError, match="Error in return type"):
         generate_sql_function_body(unsupported_return_type_func, "test_catalog", "test_schema")
 
+
 def test_function_with_unsupported_param_type():
     def unsupported_param_type_func(a: object) -> str:
         """Unsupported type hint"""
@@ -844,13 +918,17 @@ def test_function_with_unsupported_param_type():
     with pytest.raises(ValueError, match="Error in parameter 'a'"):
         generate_sql_function_body(unsupported_param_type_func, "test_catalog", "test_schema")
 
+
 def test_function_without_return_type_hints():
     def no_return_type_hint_func(a: int, b: int):
         """No return type hint"""
         return a + b
 
-    with pytest.raises(ValueError, match="Return type for function 'no_return_type_hint_func' is not defined"):
+    with pytest.raises(
+        ValueError, match="Return type for function 'no_return_type_hint_func' is not defined"
+    ):
         generate_sql_function_body(no_return_type_hint_func, "test_catalog", "test_schema")
+
 
 def test_function_without_arg_type_hints():
     def no_arg_type_hint_func(a, b) -> int:
@@ -860,9 +938,11 @@ def test_function_without_arg_type_hints():
     with pytest.raises(ValueError, match="Missing type hint for parameter: a"):
         generate_sql_function_body(no_arg_type_hint_func, "test_catalog", "test_schema")
 
+
 # ---------------------------
 # Tests for Optional Parameters and Defaults
 # ---------------------------
+
 
 def test_function_with_optional_default_values():
     def func_with_optional(a: int, b: int = 10, c: str = "default") -> str:
@@ -873,7 +953,7 @@ def test_function_with_optional_default_values():
             a: Required integer.
             b: Optional integer with default 10.
             c: Optional string with default "default".
-        
+
         Returns:
             str: A concatenated string of the inputs.
         """
@@ -892,6 +972,7 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 def test_function_with_mixed_required_and_default_values():
     def func_with_mixed(a: int, b: int = 5, c: int = 20) -> int:
         """
@@ -908,7 +989,7 @@ def test_function_with_mixed_required_and_default_values():
         return a + b + c
 
     sql_body = generate_sql_function_body(func_with_mixed, "test_catalog", "test_schema", True)
-    
+
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_mixed(a INTEGER COMMENT 'Required parameter.', b INTEGER DEFAULT 5 COMMENT 'Optional parameter with default value 5.', c INTEGER DEFAULT 20 COMMENT 'Optional parameter with default value 20.')
 RETURNS INTEGER
@@ -920,6 +1001,7 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 def test_function_with_default_string_value():
     def func_with_default_str(a: str = "hello") -> str:
         """
@@ -927,14 +1009,14 @@ def test_function_with_default_string_value():
 
         Args:
             a: Optional string parameter with default value "hello".
-        
+
         Returns:
             str: The string 'hello' or the input value.
         """
         return a
 
     sql_body = generate_sql_function_body(func_with_default_str, "test_catalog", "test_schema")
-    
+
     expected_sql = """
 CREATE FUNCTION test_catalog.test_schema.func_with_default_str(a STRING DEFAULT 'hello' COMMENT 'Optional string parameter with default value "hello".')
 RETURNS STRING
@@ -946,19 +1028,22 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 def test_function_with_default_string_value_using_single_quote():
     def func_with_default_str(a: str = "hello") -> str:
         """
         A function with an optional string parameter.
         Args:
             a: Optional string parameter with default value 'hello'.
-        
+
         Returns:
             str: The string 'hello' or the input value.
         """
         return a
 
-    sql_body = generate_sql_function_body(func_with_default_str, "test_catalog", "test_schema", True)
+    sql_body = generate_sql_function_body(
+        func_with_default_str, "test_catalog", "test_schema", True
+    )
 
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_default_str(a STRING DEFAULT 'hello' COMMENT 'Optional string parameter with default value "hello".')
@@ -971,6 +1056,7 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 def test_function_with_default_numeric_and_string():
     def func_with_numeric_and_string(a: int = 5, b: str = "foo") -> str:
         """
@@ -979,14 +1065,16 @@ def test_function_with_default_numeric_and_string():
         Args:
             a: Optional integer with default value 5.
             b: Optional string with default value "foo".
-        
+
         Returns:
             str: A concatenation of the string 'b' repeated 'a' times.
         """
         return b * a
 
-    sql_body = generate_sql_function_body(func_with_numeric_and_string, "test_catalog", "test_schema")
-    
+    sql_body = generate_sql_function_body(
+        func_with_numeric_and_string, "test_catalog", "test_schema"
+    )
+
     expected_sql = """
 CREATE FUNCTION test_catalog.test_schema.func_with_numeric_and_string(a INTEGER DEFAULT 5 COMMENT 'Optional integer with default value 5.', b STRING DEFAULT 'foo' COMMENT 'Optional string with default value "foo".')
 RETURNS STRING
@@ -997,6 +1085,7 @@ AS $$
 $$;
     """
     assert sql_body.strip() == expected_sql.strip()
+
 
 def test_function_with_optional_parameter():
     def func_with_optional_param(a: Optional[int] = None, b: str = "default") -> str:
@@ -1012,7 +1101,7 @@ def test_function_with_optional_parameter():
         """
         return f"{a}-{b}"
 
-    sql_body = generate_sql_function_body(func_with_optional_param,"test_catalog", "test_schema")
+    sql_body = generate_sql_function_body(func_with_optional_param, "test_catalog", "test_schema")
 
     expected_sql = """
 CREATE FUNCTION test_catalog.test_schema.func_with_optional_param(a INTEGER DEFAULT NULL COMMENT 'Optional integer parameter, default None.', b STRING DEFAULT 'default' COMMENT 'Optional string parameter, default "default".')
@@ -1025,9 +1114,11 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 # ---------------------------
 # Tests for Forbidden Default Types
 # ---------------------------
+
 
 def test_parameter_with_default_list():
     def func_with_default_list(a: List[int] = [1, 2, 3]) -> int:  # noqa: B006
@@ -1037,17 +1128,19 @@ def test_parameter_with_default_list():
         return sum(a)
 
     with pytest.raises(ValueError, match="Parameter 'a' of type '.*' cannot have a default value."):
-        generate_sql_function_body(func_with_default_list, 'test_catalog', 'test_schema')
+        generate_sql_function_body(func_with_default_list, "test_catalog", "test_schema")
+
 
 def test_parameter_with_default_dict():
-    def func_with_default_dict(a: Dict[str, int] = {'one': 1}) -> int:  # noqa: B006
+    def func_with_default_dict(a: Dict[str, int] = {"one": 1}) -> int:  # noqa: B006
         """
         Function with a default dict parameter.
         """
-        return a['one']
+        return a["one"]
 
     with pytest.raises(ValueError, match="Parameter 'a' of type '.*' cannot have a default value."):
-        generate_sql_function_body(func_with_default_dict, 'test_catalog', 'test_schema')
+        generate_sql_function_body(func_with_default_dict, "test_catalog", "test_schema")
+
 
 def test_parameter_with_default_tuple():
     def func_with_default_tuple(a: Tuple[int] = (1, 2)) -> int:
@@ -1057,12 +1150,13 @@ def test_parameter_with_default_tuple():
         return sum(a)
 
     with pytest.raises(ValueError, match="Parameter 'a' of type '.*' cannot have a default value."):
-        generate_sql_function_body(func_with_default_tuple, 'test_catalog', 'test_schema')
+        generate_sql_function_body(func_with_default_tuple, "test_catalog", "test_schema")
 
 
 # ---------------------------
 # Tests for Mismatched Default Types
 # ---------------------------
+
 
 def test_parameter_with_disallowed_scalar_default():
     def func_with_wrong_default(a: int = "10") -> int:
@@ -1071,72 +1165,94 @@ def test_parameter_with_disallowed_scalar_default():
         """
         return a * 2
 
-    with pytest.raises(ValueError, match="Default value for parameter 'a' does not match the type hint"):
-        generate_sql_function_body(func_with_wrong_default, 'test_catalog', 'test_schema')
+    with pytest.raises(
+        ValueError, match="Default value for parameter 'a' does not match the type hint"
+    ):
+        generate_sql_function_body(func_with_wrong_default, "test_catalog", "test_schema")
 
 
 # ---------------------------
 # Tests for Forbidden Parameters
 # ---------------------------
 
+
 def test_function_with_self():
     """Test that functions using 'self' raise an exception."""
+
     def func_with_self(self, a: int) -> int:
         """Example function with 'self'."""
         return a * 2
-    
-    with pytest.raises(ValueError, match="Parameter 'self' is not allowed in the function signature"):
+
+    with pytest.raises(
+        ValueError, match="Parameter 'self' is not allowed in the function signature"
+    ):
         generate_sql_function_body(func_with_self, "test_catalog", "test_schema")
+
 
 def test_function_with_cls():
     """Test that functions using 'cls' raise an exception."""
+
     def func_with_cls(cls, a: int) -> int:
         """Example function with 'cls'."""
         return a + 5
-    
-    with pytest.raises(ValueError, match="Parameter 'cls' is not allowed in the function signature"):
+
+    with pytest.raises(
+        ValueError, match="Parameter 'cls' is not allowed in the function signature"
+    ):
         generate_sql_function_body(func_with_cls, "test_catalog", "test_schema")
+
 
 # ---------------------------
 # Tests for Forbidden *args and **kwargs
 # ---------------------------
 
+
 def test_function_with_args():
     def func_with_args(*args) -> int:
         """Function that incorrectly uses *args."""
         return sum(args)
-    
+
     with pytest.raises(
-        ValueError, 
-        match=re.escape("Parameter 'args' is a var-positional (*args) parameter, which is not supported in SQL functions.")
+        ValueError,
+        match=re.escape(
+            "Parameter 'args' is a var-positional (*args) parameter, which is not supported in SQL functions."
+        ),
     ):
         generate_sql_function_body(func_with_args, "catalog", "schema")
+
 
 def test_function_with_kwargs():
     def func_with_kwargs(**kwargs) -> int:
         """Function that incorrectly uses **kwargs."""
         return sum(kwargs.values())
-    
+
     with pytest.raises(
-        ValueError, 
-        match=re.escape("Parameter 'kwargs' is a var-keyword (**kwargs) parameter, which is not supported in SQL functions.")
+        ValueError,
+        match=re.escape(
+            "Parameter 'kwargs' is a var-keyword (**kwargs) parameter, which is not supported in SQL functions."
+        ),
     ):
         generate_sql_function_body(func_with_kwargs, "catalog", "schema")
+
 
 def test_function_with_mixed_args():
     def func_with_mixed(a: int, *args, **kwargs) -> int:
         """Function that incorrectly uses both *args and **kwargs."""
         return a + sum(args) + sum(kwargs.values())
-    
+
     with pytest.raises(
-        ValueError, 
-        match=re.escape("Parameter 'args' is a var-positional (*args) parameter, which is not supported in SQL functions.")
+        ValueError,
+        match=re.escape(
+            "Parameter 'args' is a var-positional (*args) parameter, which is not supported in SQL functions."
+        ),
     ):
         generate_sql_function_body(func_with_mixed, "catalog", "schema")
+
 
 # ---------------------------
 # Tests for Indentation Handling
 # ---------------------------
+
 
 def test_function_with_2_space_indentation():
     def two_space_indented_func(a: int) -> str:
@@ -1145,18 +1261,21 @@ def test_function_with_2_space_indentation():
 
         Args:
             a: The parameter
-        
+
         Returns:
             str: The string representation of the parameter
         """
+
         def nested_func(b: int) -> int:
-          return b + a
+            return b + a
 
         return str(nested_func(a))
 
     # Generating SQL from the function
-    sql_body = generate_sql_function_body(two_space_indented_func, "test_catalog", "test_schema", True)
-    
+    sql_body = generate_sql_function_body(
+        two_space_indented_func, "test_catalog", "test_schema", True
+    )
+
     # Expected SQL with 2-space indentation for function body and nested function
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.two_space_indented_func(a INTEGER COMMENT 'The parameter')
@@ -1172,9 +1291,11 @@ $$;
     """
     assert sql_body.strip() == expected_sql.strip()
 
+
 # ---------------------------
 # Tests for Functions with Imports
 # ---------------------------
+
 
 def test_function_with_imports():
     def func_with_import(a: int) -> str:
@@ -1183,15 +1304,16 @@ def test_function_with_imports():
 
         Args:
             a: The input parameter
-        
+
         Returns:
             str: A string representation of a result
         """
         import math
+
         return str(math.sqrt(a))
 
     sql_body = generate_sql_function_body(func_with_import, "test_catalog", "test_schema")
-    
+
     expected_sql = """
 CREATE FUNCTION test_catalog.test_schema.func_with_import(a INTEGER COMMENT 'The input parameter')
 RETURNS STRING

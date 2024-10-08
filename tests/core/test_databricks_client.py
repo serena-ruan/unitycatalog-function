@@ -228,6 +228,7 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
         output="day_of_week,day\n1,2024-01-01\n2,2024-01-02\n3,2024-01-03\n4,2024-01-04\n5,2024-01-05\n",
     )
 
+
 def python_function_with_dict_input() -> PythonFunctionInputOutput:
     def function_with_dict_input(s: Dict[str, int]) -> int:
         """Python function that sums the values in a dictionary."""
@@ -267,11 +268,11 @@ def python_function_with_string_input() -> PythonFunctionInputOutput:
 def python_function_with_binary_input() -> PythonFunctionInputOutput:
     def function_with_binary_input(s: bytes) -> str:
         """Python function with binary input"""
-        return s.decode('utf-8')
+        return s.decode("utf-8")
 
     return PythonFunctionInputOutput(
         func=function_with_binary_input,
-        inputs = [
+        inputs=[
             {"s": base64.b64encode(b"Hello").decode("utf-8")},
             {"s": "SGVsbG8="},
         ],
@@ -283,6 +284,7 @@ def python_function_with_interval_input() -> PythonFunctionInputOutput:
     def function_with_interval_input(s: datetime.timedelta) -> str:
         """Python function with interval input"""
         import datetime
+
         return (datetime.datetime(2024, 8, 19) - s).isoformat()
 
     return PythonFunctionInputOutput(
@@ -343,7 +345,7 @@ def python_function_with_map_input() -> PythonFunctionInputOutput:
 def python_function_with_decimal_input() -> PythonFunctionInputOutput:
     def function_with_decimal_input(s: Decimal) -> str:
         """Python function with decimal input."""
-        return format(s, '.20g')
+        return format(s, ".20g")
 
     return PythonFunctionInputOutput(
         func=function_with_decimal_input,
@@ -974,33 +976,31 @@ def test_create_and_execute_python_function(client: DatabricksFunctionClient):
     def simple_func(x: int) -> str:
         """Test function that returns the string version of x."""
         return str(x)
-    
+
     with create_python_function_and_cleanup(client, func=simple_func) as func_obj:
         result = client.execute_function(func_obj.full_function_name, {"x": 10})
         assert result.value == "10"
+
 
 def test_create_python_function_with_invalid_arguments(client: DatabricksFunctionClient):
     def invalid_func(self, x: int) -> str:
         """Function with 'self' in the argument."""
         return str(x)
 
-    with pytest.raises(ValueError, match="Parameter 'self' is not allowed in the function signature."):
-        client.create_python_function(
-            func=invalid_func,
-            catalog=CATALOG,
-            schema=SCHEMA
-        )
+    with pytest.raises(
+        ValueError, match="Parameter 'self' is not allowed in the function signature."
+    ):
+        client.create_python_function(func=invalid_func, catalog=CATALOG, schema=SCHEMA)
 
     def another_invalid_func(cls, x: int) -> str:
         """Function with 'cls' in the argument."""
         return str(x)
 
-    with pytest.raises(ValueError, match="Parameter 'cls' is not allowed in the function signature."):
-        client.create_python_function(
-            func=another_invalid_func,
-            catalog=CATALOG,
-            schema=SCHEMA
-        )
+    with pytest.raises(
+        ValueError, match="Parameter 'cls' is not allowed in the function signature."
+    ):
+        client.create_python_function(func=another_invalid_func, catalog=CATALOG, schema=SCHEMA)
+
 
 @requires_databricks
 def test_create_python_function_with_complex_body(client: DatabricksFunctionClient):
@@ -1014,6 +1014,7 @@ def test_create_python_function_with_complex_body(client: DatabricksFunctionClie
     with create_python_function_and_cleanup(client, func=complex_func) as func_obj:
         result = client.execute_function(func_obj.full_function_name, {"a": 1, "b": 2})
         assert result.value == "3"
+
 
 @requires_databricks
 def test_create_python_function_with_docstring_comments(client: DatabricksFunctionClient):
@@ -1034,27 +1035,25 @@ def test_create_python_function_with_docstring_comments(client: DatabricksFuncti
         result = client.execute_function(func_obj.full_function_name, {"a": 5, "b": 3})
         assert result.value == "8"
 
+
 def test_create_python_function_missing_return_type(client: DatabricksFunctionClient):
     def missing_return_type_func(a: int, b: int):
         """A function that lacks a return type."""
         return a + b
 
-    with pytest.raises(ValueError, match="Return type for function 'missing_return_type_func' is not defined. Please provide a return type."):
-        client.create_python_function(
-            func=missing_return_type_func,
-            catalog=CATALOG,
-            schema=SCHEMA
-        )
+    with pytest.raises(
+        ValueError,
+        match="Return type for function 'missing_return_type_func' is not defined. Please provide a return type.",
+    ):
+        client.create_python_function(func=missing_return_type_func, catalog=CATALOG, schema=SCHEMA)
+
 
 def test_create_python_function_not_callable(client: DatabricksFunctionClient):
     scalar = 42
 
     with pytest.raises(ValueError, match="The provided function is not callable"):
-        client.create_python_function(
-            func=scalar,
-            catalog=CATALOG,
-            schema=SCHEMA
-        )
+        client.create_python_function(func=scalar, catalog=CATALOG, schema=SCHEMA)
+
 
 @requires_databricks
 def test_function_with_list_of_int_return(client: DatabricksFunctionClient):
@@ -1074,6 +1073,7 @@ def test_function_with_list_of_int_return(client: DatabricksFunctionClient):
         result = client.execute_function(func_obj.full_function_name, {"a": 3})
         assert result.value == "[0, 1, 2]"
 
+
 @requires_databricks
 def test_function_with_dict_of_string_to_int_return(client: DatabricksFunctionClient):
     def func_returning_map(a: int) -> Dict[str, int]:
@@ -1092,38 +1092,48 @@ def test_function_with_dict_of_string_to_int_return(client: DatabricksFunctionCl
         result = client.execute_function(func_obj.full_function_name, {"a": 3})
         assert result.value == "{'key_0': 0, 'key_1': 1, 'key_2': 2}"
 
+
 def test_function_with_invalid_list_return_type(client: DatabricksFunctionClient):
     def func_with_invalid_list_return(a: int) -> List:
         """A function returning a list without specifying the element type."""
         return list(range(a))
 
-    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_with_invalid_list_return': typing.List. Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int].")):
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Error in return type for function 'func_with_invalid_list_return': typing.List. Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int]."
+        ),
+    ):
         client.create_python_function(
-            func=func_with_invalid_list_return,
-            catalog=CATALOG,
-            schema=SCHEMA
+            func=func_with_invalid_list_return, catalog=CATALOG, schema=SCHEMA
         )
+
 
 def test_function_with_invalid_dict_return_type(client: DatabricksFunctionClient):
     def func_with_invalid_dict_return(a: int) -> Dict:
         """A function returning a dict without specifying key and value types."""
         return {f"key_{i}": i for i in range(a)}
 
-    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_with_invalid_dict_return': typing.Dict. Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int].")):
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Error in return type for function 'func_with_invalid_dict_return': typing.Dict. Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int]."
+        ),
+    ):
         client.create_python_function(
-            func=func_with_invalid_dict_return,
-            catalog=CATALOG,
-            schema=SCHEMA
+            func=func_with_invalid_dict_return, catalog=CATALOG, schema=SCHEMA
         )
+
 
 def test_function_with_union_return_type(client: DatabricksFunctionClient):
     def func_with_union_return(a: int) -> Union[str, int]:
         """A function returning a union type."""
         return a if a % 2 == 0 else str(a)
 
-    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_with_union_return': typing.Union[str, int]. Union types are not supported in return types.")):
-        client.create_python_function(
-            func=func_with_union_return,
-            catalog=CATALOG,
-            schema=SCHEMA
-        )
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Error in return type for function 'func_with_union_return': typing.Union[str, int]. Union types are not supported in return types."
+        ),
+    ):
+        client.create_python_function(func=func_with_union_return, catalog=CATALOG, schema=SCHEMA)

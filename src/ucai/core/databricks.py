@@ -217,22 +217,24 @@ class DatabricksFunctionClient(BaseFunctionClient):
         raise ValueError("Either function_info or sql_function_body should be provided.")
 
     @override
-    def create_python_function(self, *, func: Callable[..., Any], catalog: str, schema: str, replace: bool = False) -> "FunctionInfo":
+    def create_python_function(
+        self, *, func: Callable[..., Any], catalog: str, schema: str, replace: bool = False
+    ) -> "FunctionInfo":
         # TODO: migrate this guide to the documentation
         """
         Create a Unity Catalog (UC) function directly from a Python function.
 
-        This API allows you to convert a Python function into a Unity Catalog User-Defined Function (UDF). 
-        It automates the creation of UC functions while ensuring that the Python function meets certain 
+        This API allows you to convert a Python function into a Unity Catalog User-Defined Function (UDF).
+        It automates the creation of UC functions while ensuring that the Python function meets certain
         criteria and adheres to best practices.
 
         **Requirements:**
 
         1. **Type Annotations**:
-            - The Python function must use argument and return type annotations. These annotations are used 
+            - The Python function must use argument and return type annotations. These annotations are used
             to generate the SQL signature of the UC function.
             - Supported Python types and their corresponding UC types are as follows:
-            
+
             | Python Type          | Unity Catalog Type       |
             |----------------------|--------------------------|
             | `int`                | `INTEGER`                |
@@ -253,18 +255,18 @@ class DatabricksFunctionClient(BaseFunctionClient):
             def my_function(a: int, b: str) -> float:
                 return a + len(b)
             ```
-            
+
             - **Invalid function (missing type annotations)**:
             ```python
             def my_function(a, b):
                 return a + len(b)
             ```
-            Attempting to create a UC function from a function without type hints will raise an error, as the 
+            Attempting to create a UC function from a function without type hints will raise an error, as the
             system relies on type hints to generate the UC function's signature.
 
             - For container types like `list`, `tuple` and `dict`, the inner types **must be specified** and must be
             uniform (Union types are not permitted). For example:
-            
+
             ```python
             def my_function(a: List[int], b: Dict[str, float]) -> List[str]:
                 return [str(x) for x in a]
@@ -290,7 +292,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
             def my_function(a: int, b: str) -> float:
                 \"\"\"
                 Adds the length of a string to an integer.
-                
+
                 Args:
                     a (int): The integer to add to.
                     b (str): The string whose length will be added.
@@ -308,13 +310,13 @@ class DatabricksFunctionClient(BaseFunctionClient):
             [this link](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html)
 
         3. **External Dependencies**:
-            - Unity Catalog UDFs are limited to Python standard libraries and Databricks-provided libraries. If your 
+            - Unity Catalog UDFs are limited to Python standard libraries and Databricks-provided libraries. If your
             function relies on unsupported external dependencies, the created UC function may fail at runtime.
-            - It is strongly recommended to test the created function by executing it before integrating it into 
+            - It is strongly recommended to test the created function by executing it before integrating it into
             GenAI or other tools.
 
         **Function Metadata**:
-        - Docstrings (if provided and Google-style) will automatically be included as detailed descriptions for 
+        - Docstrings (if provided and Google-style) will automatically be included as detailed descriptions for
         function parameters as well as for the function itself, enhancing the discoverability of the utility of your
         UC function.
 
@@ -323,11 +325,11 @@ class DatabricksFunctionClient(BaseFunctionClient):
         def example_function(x: int, y: int) -> float:
             \"\"\"
             Multiplies an integer by the length of a string.
-            
+
             Args:
                 x (int): The number to be multiplied.
                 y (int): A string whose length will be used for multiplication.
-            
+
             Returns:
                 float: The product of the integer and the string length.
             \"\"\"
@@ -363,7 +365,6 @@ class DatabricksFunctionClient(BaseFunctionClient):
             return self.create_function(sql_function_body=sql_function_body)
         except Exception as e:
             raise RuntimeError(f"Failed to create function for {func.__name__}") from e
-
 
     @override
     def get_function(self, function_name: str, **kwargs: Any) -> "FunctionInfo":

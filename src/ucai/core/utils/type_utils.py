@@ -106,43 +106,45 @@ def convert_timedelta_to_interval_str(time_val: datetime.timedelta) -> str:
 
 def python_type_to_sql_type(py_type: Any) -> str:
     """
-    Convert a Python type to its SQL equivalent. Handles nested types (e.g., List[Dict[str, int]]) 
+    Convert a Python type to its SQL equivalent. Handles nested types (e.g., List[Dict[str, int]])
     by recursively mapping the inner types using PYTHON_TO_SQL_TYPE_MAPPING.
-    
+
     Args:
         py_type: The Python type to be converted (e.g., List[int], Dict[str, List[int]]).
-    
+
     Returns:
         str: The corresponding SQL type (e.g., ARRAY<MAP<STRING, INTEGER>>).
-    
+
     Raises:
         ValueError: If the type cannot be mapped to a SQL type.
     """
     if py_type is Any:
-        raise ValueError("Unsupported Python type: typing.Any is not allowed. Please specify a concrete type.")
-    
+        raise ValueError(
+            "Unsupported Python type: typing.Any is not allowed. Please specify a concrete type."
+        )
+
     origin = get_origin(py_type)
 
     if origin is dict:
         if not get_args(py_type):
             raise ValueError(f"Unsupported Python type: typing.Dict requires key and value types.")
-        
+
         key_type, value_type = get_args(py_type)
         key_sql_type = python_type_to_sql_type(key_type)
         value_sql_type = python_type_to_sql_type(value_type)
         return f"MAP<{key_sql_type}, {value_sql_type}>"
-    
+
     elif origin in (list, tuple):
         if not get_args(py_type):
-            raise ValueError(f"Unsupported Python type: typing.List or typing.Tuple requires an element type.")
-        
-        element_type, = get_args(py_type)
+            raise ValueError(
+                f"Unsupported Python type: typing.List or typing.Tuple requires an element type."
+            )
+
+        (element_type,) = get_args(py_type)
         element_sql_type = python_type_to_sql_type(element_type)
         return f"ARRAY<{element_sql_type}>"
-    
+
     if sql_type := PYTHON_TO_SQL_TYPE_MAPPING.get(py_type):
         return sql_type
-    
+
     raise ValueError(f"Unsupported Python type: {py_type}")
-
-

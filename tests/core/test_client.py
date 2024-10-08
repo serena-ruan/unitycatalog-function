@@ -34,7 +34,9 @@ class MockClient(BaseFunctionClient):
         return function_info
 
     @override
-    def create_python_function(self, func: Callable, func_comment: str, catalog: str, schema: str) -> Any:
+    def create_python_function(
+        self, func: Callable, func_comment: str, catalog: str, schema: str
+    ) -> Any:
         return ""
 
     @override

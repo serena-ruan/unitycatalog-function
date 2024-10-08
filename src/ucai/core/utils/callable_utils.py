@@ -6,12 +6,13 @@ from typing import Any, Callable, Optional, Union, get_args, get_origin, get_typ
 
 from ucai.core.utils.type_utils import python_type_to_sql_type
 
-FORBIDDEN_PARAMS = ['self', 'cls']
+FORBIDDEN_PARAMS = ["self", "cls"]
 
 
 @dataclass
 class DocstringInfo:
     """Dataclass to store parsed docstring information."""
+
     description: str
     params: Optional[dict[str, str]]
     returns: Optional[str]
@@ -21,10 +22,11 @@ class FunctionBodyExtractor(ast.NodeVisitor):
     """
     AST NodeVisitor class to extract the body of a function.
     """
+
     def __init__(self, func_name: str, source_code: str):
         self.func_name = func_name
         self.source_code = source_code
-        self.function_body = ''
+        self.function_body = ""
         self.indent_unit = 4
         self.found = False
 
@@ -36,7 +38,12 @@ class FunctionBodyExtractor(ast.NodeVisitor):
     def extract_body(self, node: ast.FunctionDef):
         body = node.body
         # Skip the docstring
-        if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str):
+        if (
+            body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        ):
             body = body[1:]
 
         if not body:
@@ -46,9 +53,9 @@ class FunctionBodyExtractor(ast.NodeVisitor):
         end_lineno = body[-1].end_lineno
 
         source_lines = self.source_code.splitlines(keepends=True)
-        function_body_lines = source_lines[start_lineno - 1:end_lineno]
+        function_body_lines = source_lines[start_lineno - 1 : end_lineno]
 
-        self.function_body = dedent(''.join(function_body_lines)).rstrip('\n')
+        self.function_body = dedent("".join(function_body_lines)).rstrip("\n")
 
         indents = [stmt.col_offset for stmt in body if stmt.col_offset is not None]
         if indents:
@@ -79,7 +86,9 @@ def parse_docstring(docstring: str) -> DocstringInfo:
     """
 
     if not docstring or not docstring.strip():
-        raise ValueError("Docstring is empty. Please provide a docstring with a function description.")
+        raise ValueError(
+            "Docstring is empty. Please provide a docstring with a function description."
+        )
 
     description_lines = []
     parsed_params = {}
@@ -89,7 +98,7 @@ def parse_docstring(docstring: str) -> DocstringInfo:
 
     state = State.DESCRIPTION
     lines = docstring.strip().splitlines()
-    lines.append('')  # Add an empty line to ensure the last param is processed
+    lines.append("")  # Add an empty line to ensure the last param is processed
     iterator = iter(lines)
 
     for line in iterator:
@@ -100,13 +109,13 @@ def parse_docstring(docstring: str) -> DocstringInfo:
             continue
         elif stripped_line == "Returns:":
             if current_param and param_description_lines:
-                parsed_params[current_param] = ' '.join(param_description_lines).strip()
+                parsed_params[current_param] = " ".join(param_description_lines).strip()
                 current_param = None
                 param_description_lines = []
             state = State.RETURNS
             continue
         elif stripped_line == "" and state == State.ARGS and current_param:
-            parsed_params[current_param] = ' '.join(param_description_lines).strip()
+            parsed_params[current_param] = " ".join(param_description_lines).strip()
             current_param = None
             param_description_lines = []
             continue
@@ -116,12 +125,12 @@ def parse_docstring(docstring: str) -> DocstringInfo:
                 description_lines.append(stripped_line)
         elif state == State.ARGS:
             if stripped_line:
-                if ':' in stripped_line:
+                if ":" in stripped_line:
                     if current_param and param_description_lines:
-                        parsed_params[current_param] = ' '.join(param_description_lines).strip()
-                    param_parts = stripped_line.split(':', 1)
+                        parsed_params[current_param] = " ".join(param_description_lines).strip()
+                    param_parts = stripped_line.split(":", 1)
                     # Remove type hints in parentheses if any
-                    current_param = param_parts[0].strip().split()[0]  
+                    current_param = param_parts[0].strip().split()[0]
                     param_description_lines = [param_parts[1].strip()]
                 else:
                     param_description_lines.append(stripped_line)
@@ -130,18 +139,19 @@ def parse_docstring(docstring: str) -> DocstringInfo:
                 if returns is None:
                     returns = stripped_line
                 else:
-                    returns += ' ' + stripped_line
+                    returns += " " + stripped_line
 
     if current_param and param_description_lines:
-        parsed_params[current_param] = ' '.join(param_description_lines).strip()
+        parsed_params[current_param] = " ".join(param_description_lines).strip()
 
-    description = ' '.join(description_lines).strip()
+    description = " ".join(description_lines).strip()
 
     if not description:
-        raise ValueError("Function description is missing in the docstring. Please provide a function description.")
+        raise ValueError(
+            "Function description is missing in the docstring. Please provide a function description."
+        )
 
     return DocstringInfo(description=description, params=parsed_params, returns=returns)
-
 
 
 def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
@@ -150,7 +160,7 @@ def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
     dedents the code, and returns the indentation unit used in the function (e.g., 2 or 4 spaces).
     """
     source_lines, _ = inspect.getsourcelines(func)
-    dedented_source = dedent(''.join(source_lines))
+    dedented_source = dedent("".join(source_lines))
     func_name = func.__name__
 
     extractor = FunctionBodyExtractor(func_name, dedented_source)
@@ -159,18 +169,22 @@ def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
 
     return extractor.function_body, extractor.indent_unit
 
+
 def validate_type_hint(hint: Any) -> str:
     """Validates and returns the SQL type for a given type hint."""
     # Handle typing.Optional, which is Union[type, None]
-    if hasattr(hint, '__origin__') and hint.__origin__ is Union:
+    if hasattr(hint, "__origin__") and hint.__origin__ is Union:
         non_none_types = [t for t in hint.__args__ if t is not type(None)]
         if len(non_none_types) == 1:
             return python_type_to_sql_type(non_none_types[0])
         else:
             raise ValueError(f"Unsupported type union: {hint}")
     if hint is Any:
-        raise ValueError("Unsupported Python type: typing.Any is not allowed. Please specify a concrete type.")
+        raise ValueError(
+            "Unsupported Python type: typing.Any is not allowed. Please specify a concrete type."
+        )
     return python_type_to_sql_type(hint)
+
 
 def generate_type_hint_error_message(param_name: str, param_hint: Any, exception: Exception) -> str:
     """
@@ -182,7 +196,7 @@ def generate_type_hint_error_message(param_name: str, param_hint: Any, exception
     Returns:
         str: A detailed error message guiding the user on how to resolve the issue.
     """
-    if hasattr(param_hint, '__origin__'):
+    if hasattr(param_hint, "__origin__"):
         origin = param_hint.__origin__
         if origin == list:
             return (
@@ -204,19 +218,22 @@ def generate_type_hint_error_message(param_name: str, param_hint: Any, exception
         f"Original error: {exception}"
     )
 
+
 def format_default_value(default: Any) -> str:
     """Formats the default value for SQL."""
     if default is None:
-        return 'NULL'
+        return "NULL"
     elif isinstance(default, str):
         return f"'{default}'"
     else:
         return str(default)
 
+
 def is_collection_type(type_hint: Any) -> bool:
     """Checks if the type hint represents a collection type (list, tuple, dict)."""
     origin = get_origin(type_hint)
     return origin in (list, tuple, dict) or type_hint in (list, tuple, dict)
+
 
 def unwrap_function(func: Callable[..., Any]) -> Callable[..., Any]:
     """Unwraps staticmethod or classmethod to get the actual function."""
@@ -224,19 +241,57 @@ def unwrap_function(func: Callable[..., Any]) -> Callable[..., Any]:
         func = func.__func__
     return func
 
+
+def is_valid_default_value(default: Any, type_hint: Any) -> bool:
+    """
+    Checks if the default value matches the type hint for scalar types.
+    Handles Optional types by checking against each type in the Union.
+
+    Note: this function is required for compatibility with Python 3.9 and lower
+    due to the inability to use isinstance with subscripted generic types.
+    This function can be removed and the type hint check can be done directly
+    with isinstance(default, type_hint) when the minimum supported version of Python is 3.10+.
+    """
+    origin = get_origin(type_hint)
+    args = get_args(type_hint)
+
+    if default is None:
+        if origin is Union and type(None) in args:
+            return True
+        elif type_hint is type(None):
+            return True
+        else:
+            return False
+    else:
+        if origin is Union:
+            return any(
+                is_valid_default_value(default, arg) for arg in args if arg is not type(None)
+            )
+        elif isinstance(type_hint, type):
+            return isinstance(default, type_hint)
+        else:
+            return False
+
+
 def process_parameter(
     param_name: str,
     param: inspect.Parameter,
     type_hints: dict[str, Any],
-    docstring_info: DocstringInfo
+    docstring_info: DocstringInfo,
 ) -> str:
     """Processes a single parameter and returns its SQL definition."""
     if param_name in FORBIDDEN_PARAMS:
         raise ValueError(f"Parameter '{param_name}' is not allowed in the function signature.")
 
     if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
-        kind = 'var-positional (*args)' if param.kind == inspect.Parameter.VAR_POSITIONAL else 'var-keyword (**kwargs)'
-        raise ValueError(f"Parameter '{param_name}' is a {kind} parameter, which is not supported in SQL functions.")
+        kind = (
+            "var-positional (*args)"
+            if param.kind == inspect.Parameter.VAR_POSITIONAL
+            else "var-keyword (**kwargs)"
+        )
+        raise ValueError(
+            f"Parameter '{param_name}' is a {kind} parameter, which is not supported in SQL functions."
+        )
 
     if param_name not in type_hints:
         raise ValueError(f"Missing type hint for parameter: {param_name}.")
@@ -249,12 +304,16 @@ def process_parameter(
         error_message = generate_type_hint_error_message(param_name, param_hint, e)
         raise ValueError(error_message) from e
 
-    param_comment = docstring_info.params.get(param_name, f"Parameter {param_name}").replace("'", '"')
+    param_comment = docstring_info.params.get(param_name, f"Parameter {param_name}").replace(
+        "'", '"'
+    )
 
     if param.default is not inspect.Parameter.empty:
         if is_collection_type(param_hint):
-            raise ValueError(f"Parameter '{param_name}' of type '{param_hint}' cannot have a default value.")
-        if not isinstance(param.default, param_hint):
+            raise ValueError(
+                f"Parameter '{param_name}' of type '{param_hint}' cannot have a default value."
+            )
+        if not is_valid_default_value(param.default, param_hint):
             raise ValueError(
                 f"Default value for parameter '{param_name}' does not match the type hint '{param_hint}'."
             )
@@ -272,11 +331,11 @@ def assemble_sql_body(
     sql_return_type: str,
     func_comment: str,
     indented_body: str,
-    replace: bool
+    replace: bool,
 ) -> str:
     replace_command = "CREATE OR REPLACE" if replace else "CREATE"
     """Assembles the final SQL function body."""
-    sql_params_str = ', '.join(sql_params)
+    sql_params_str = ", ".join(sql_params)
     sql_body = f"""
 {replace_command} FUNCTION {catalog}.{schema}.{func_name}({sql_params_str})
 RETURNS {sql_return_type}
@@ -288,11 +347,9 @@ $$;
     """
     return sql_body
 
+
 def generate_sql_function_body(
-    func: Callable[..., Any],
-    catalog: str,
-    schema: str,
-    replace: bool = False
+    func: Callable[..., Any], catalog: str, schema: str, replace: bool = False
 ) -> str:
     """
     Generate SQL body for creating the function in Unity Catalog.
@@ -323,39 +380,51 @@ def generate_sql_function_body(
         sql_params.append(sql_param)
 
     function_body, indent_unit = extract_function_body(func)
-    indented_body = indent(function_body, ' ' * indent_unit)
+    indented_body = indent(function_body, " " * indent_unit)
 
     func_comment = docstring_info.description.replace("'", '"')
 
     sql_body = assemble_sql_body(
-        catalog, schema, func_name, sql_params, sql_return_type, func_comment, indented_body, replace
+        catalog,
+        schema,
+        func_name,
+        sql_params,
+        sql_return_type,
+        func_comment,
+        indented_body,
+        replace,
     )
 
     return sql_body
 
+
 def validate_return_type(func_name: str, type_hints: dict[str, Any]) -> str:
     """Validates and returns the SQL return type for the function."""
-    if 'return' not in type_hints:
+    if "return" not in type_hints:
         raise ValueError(
             f"Return type for function '{func_name}' is not defined. Please provide a return type."
         )
-    
-    return_type_hint = type_hints['return']
+
+    return_type_hint = type_hints["return"]
     try:
         sql_return_type = validate_type_hint(return_type_hint)
     except ValueError as e:
         base_msg = f"Error in return type for function '{func_name}': {return_type_hint}."
         origin = get_origin(return_type_hint)
         args = get_args(return_type_hint)
-        
-        if (origin in (list, tuple, dict) and not args) or (return_type_hint in (list, tuple, dict)):
-            base_msg += " Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int]."
+
+        if (origin in (list, tuple, dict) and not args) or (
+            return_type_hint in (list, tuple, dict)
+        ):
+            base_msg += (
+                " Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int]."
+            )
         elif origin is Union or return_type_hint is Union:
             base_msg += " Union types are not supported in return types."
         elif return_type_hint is Any:
             base_msg += " 'Any' type is not supported. Please specify a concrete return type."
         else:
             base_msg += f" Unsupported return type: {return_type_hint}."
-        
+
         raise ValueError(base_msg) from e
     return sql_return_type

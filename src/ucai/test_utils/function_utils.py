@@ -20,6 +20,7 @@ def random_func_name(schema: str):
     """
     return f"{CATALOG}.{schema}.test_{uuid.uuid4().hex[:4]}"
 
+
 def named_func_name(func: Callable[..., Any]) -> str:
     """
     Generate a named function name in the format of `<catalog>.<schema>.<function_name>`.
@@ -27,6 +28,7 @@ def named_func_name(func: Callable[..., Any]) -> str:
     function that is created within Unity Catalog is based on the input callable's name.
     """
     return f"{CATALOG}.{SCHEMA}.{func.__name__}"
+
 
 @contextmanager
 def generate_func_name_and_cleanup(client: DatabricksFunctionClient, schema: str):
@@ -83,6 +85,7 @@ $$
         except Exception as e:
             _logger.warning(f"Fail to delete function: {e}")
 
+
 @contextmanager
 def create_python_function_and_cleanup(
     client: DatabricksFunctionClient,
@@ -101,5 +104,4 @@ def create_python_function_and_cleanup(
         try:
             client.client.functions.delete(func_name)
         except Exception as e:
-            _logger.warning(f"Fail to delete function: {e}"
-)
+            _logger.warning(f"Fail to delete function: {e}")

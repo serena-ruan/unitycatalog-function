@@ -47,16 +47,18 @@ class BaseFunctionClient(ABC):
         """Create a function"""
 
     @abstractmethod
-    def create_python_function(self, *, func: Callable[..., Any], catalog: str, schema: str, replace: bool = False) -> "FunctionInfo":
+    def create_python_function(
+        self, *, func: Callable[..., Any], catalog: str, schema: str, replace: bool = False
+    ) -> "FunctionInfo":
         """
         Create a Python function
-        
+
         Args:
             func: A Python Callable object to be converted into a UC function.
             catalog: The catalog name.
             schema: The schema name.
             replace: Whether to replace the function if it already exists. Defaults to False.
-        
+
         Returns:
             FunctionInfo: The UC function information metadata.
         """
