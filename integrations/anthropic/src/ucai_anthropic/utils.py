@@ -112,7 +112,7 @@ def generate_tool_call_messages(
 
     Args:
         response (Message): The response from Anthropic.
-        conversation_history (Any): The history of the conversation to prepend.
+        conversation_history (Union[Dict[str, Any], List[Dict[str, Any]]]): The history of the conversation to prepend.
         client (Optional[BaseFunctionClient]): The client for executing Unity Catalog functions.
 
     Returns:
