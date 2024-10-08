@@ -2,7 +2,7 @@ import ast
 import inspect
 from dataclasses import dataclass
 from textwrap import dedent, indent
-from typing import Any, Callable, Optional, Union, get_type_hints
+from typing import Any, Callable, Optional, Union, get_args, get_origin, get_type_hints
 
 from ucai.core.utils.type_utils import python_type_to_sql_type
 
@@ -336,11 +336,26 @@ def validate_return_type(func_name: str, type_hints: dict[str, Any]) -> str:
         raise ValueError(
             f"Return type for function '{func_name}' is not defined. Please provide a return type."
         )
+    
     return_type_hint = type_hints['return']
     try:
         sql_return_type = validate_type_hint(return_type_hint)
     except ValueError as e:
-        raise ValueError(
-            f"Error in return type: {return_type_hint} is not supported."
-        ) from e
+        base_msg = f"Error in return type for function '{func_name}': {return_type_hint}."
+        origin = get_origin(return_type_hint)
+        args = get_args(return_type_hint)
+        
+        # Check for base collection types without inner types
+        if (origin in (list, tuple, dict) and not args) or (return_type_hint in (list, tuple, dict)):
+            base_msg += " Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int]."
+        # Check for Union types
+        elif origin is Union or return_type_hint is Union:
+            base_msg += " Union types are not supported in return types."
+        # Check for Any type
+        elif return_type_hint is Any:
+            base_msg += " 'Any' type is not supported. Please specify a concrete return type."
+        else:
+            base_msg += f" Unsupported return type: {return_type_hint}."
+        
+        raise ValueError(base_msg) from e
     return sql_return_type

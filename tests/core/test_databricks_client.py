@@ -1,6 +1,7 @@
 import base64
 import datetime
 import os
+import re
 import time
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, NamedTuple, Union
@@ -983,7 +984,7 @@ def test_create_python_function_with_invalid_arguments(client: DatabricksFunctio
         """Function with 'self' in the argument."""
         return str(x)
 
-    with pytest.raises(RuntimeError, match="Failed to generate SQL function body for invalid_func"):
+    with pytest.raises(ValueError, match="Parameter 'self' is not allowed in the function signature."):
         client.create_python_function(
             func=invalid_func,
             catalog=CATALOG,
@@ -994,7 +995,7 @@ def test_create_python_function_with_invalid_arguments(client: DatabricksFunctio
         """Function with 'cls' in the argument."""
         return str(x)
 
-    with pytest.raises(RuntimeError, match="Failed to generate SQL function body for another_invalid_func"):
+    with pytest.raises(ValueError, match="Parameter 'cls' is not allowed in the function signature."):
         client.create_python_function(
             func=another_invalid_func,
             catalog=CATALOG,
@@ -1038,7 +1039,7 @@ def test_create_python_function_missing_return_type(client: DatabricksFunctionCl
         """A function that lacks a return type."""
         return a + b
 
-    with pytest.raises(RuntimeError, match="Failed to generate SQL function body for missing_return_type_func"):
+    with pytest.raises(ValueError, match="Return type for function 'missing_return_type_func' is not defined. Please provide a return type."):
         client.create_python_function(
             func=missing_return_type_func,
             catalog=CATALOG,
@@ -1096,7 +1097,7 @@ def test_function_with_invalid_list_return_type(client: DatabricksFunctionClient
         """A function returning a list without specifying the element type."""
         return list(range(a))
 
-    with pytest.raises(RuntimeError, match="Failed to generate SQL function body for func_with_invalid_list_return"):
+    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_with_invalid_list_return': typing.List. Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int].")):
         client.create_python_function(
             func=func_with_invalid_list_return,
             catalog=CATALOG,
@@ -1108,7 +1109,7 @@ def test_function_with_invalid_dict_return_type(client: DatabricksFunctionClient
         """A function returning a dict without specifying key and value types."""
         return {f"key_{i}": i for i in range(a)}
 
-    with pytest.raises(RuntimeError, match="Failed to generate SQL function body for func_with_invalid_dict_return"):
+    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_with_invalid_dict_return': typing.Dict. Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int].")):
         client.create_python_function(
             func=func_with_invalid_dict_return,
             catalog=CATALOG,
@@ -1120,7 +1121,7 @@ def test_function_with_union_return_type(client: DatabricksFunctionClient):
         """A function returning a union type."""
         return a if a % 2 == 0 else str(a)
 
-    with pytest.raises(RuntimeError, match="Failed to generate SQL function body for func_with_union_return"):
+    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_with_union_return': typing.Union[str, int]. Union types are not supported in return types.")):
         client.create_python_function(
             func=func_with_union_return,
             catalog=CATALOG,

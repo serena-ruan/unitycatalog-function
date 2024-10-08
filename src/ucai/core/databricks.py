@@ -349,10 +349,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
         if not callable(func):
             raise ValueError("The provided function is not callable.")
 
-        try:
-            sql_function_body = generate_sql_function_body(func, catalog, schema)
-        except Exception as e:
-            raise RuntimeError(f"Failed to generate SQL function body for {func.__name__}") from e
+        sql_function_body = generate_sql_function_body(func, catalog, schema)
 
         try:
             return self.create_function(sql_function_body=sql_function_body)

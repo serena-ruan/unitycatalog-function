@@ -425,7 +425,7 @@ def test_function_returning_none():
         """
         return None
 
-    with pytest.raises(ValueError, match="Error in return type: <class 'NoneType'> is not supported"):
+    with pytest.raises(ValueError, match=" in return type for function 'func_returning_none': <class 'NoneType'>. Unsupported return type: <class 'NoneType'>."):
         generate_sql_function_body(func_returning_none, "test_catalog", "test_schema")
 
 def test_function_returning_any():
@@ -438,7 +438,7 @@ def test_function_returning_any():
         """
         return a
 
-    with pytest.raises(ValueError, match="Error in return type: typing.Any is not supported"):
+    with pytest.raises(ValueError, match="Error in return type for function 'func_returning_any': typing.Any. 'Any' type is not supported. Please specify a concrete return type."):
         generate_sql_function_body(func_returning_any, "test_catalog", "test_schema")
 
 def test_function_returning_union():
@@ -456,7 +456,7 @@ def test_function_returning_union():
             return a
         return str(a)
 
-    with pytest.raises(ValueError, match=re.escape("Error in return type: typing.Union[int, str] is not supported.")):
+    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_returning_union': typing.Union[int, str]. Union types are not supported in return types.")):
         generate_sql_function_body(func_returning_union, "test_catalog", "test_schema")
 
 # ---------------------------
@@ -736,7 +736,7 @@ def test_function_with_invalid_list_return():
         """
         return [1, "string", True]
 
-    with pytest.raises(ValueError, match=re.escape("Error in return type: typing.List[typing.Any] is not supported")):
+    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_with_invalid_list_return': typing.List[typing.Any]. Unsupported return type: typing.List[typing.Any].")):
         generate_sql_function_body(func_with_invalid_list_return, "test_catalog", "test_schema")
 
 def test_function_with_invalid_map_return():
@@ -749,7 +749,7 @@ def test_function_with_invalid_map_return():
         """
         return {"a": 1, "b": "string"}
 
-    with pytest.raises(ValueError, match=re.escape("Error in return type: typing.Dict[str, typing.Any] is not supported")):
+    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_with_invalid_map_return': typing.Dict[str, typing.Any]. Unsupported return type: typing.Dict[str, typing.Any].")):
         generate_sql_function_body(func_with_invalid_map_return, "test_catalog", "test_schema")
 
 def test_function_with_plain_list_type():
@@ -802,7 +802,7 @@ def test_function_with_plain_list_return_type():
         """
         return [1, 2, 3]
 
-    with pytest.raises(ValueError, match="Error in return type: typing.List is not supported."):
+    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_with_plain_list_return': typing.List. Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int].")):
         generate_sql_function_body(
             func_with_plain_list_return,
             "test_catalog",
@@ -819,7 +819,7 @@ def test_function_with_plain_dict_return_type():
         """
         return {"key": "value"}
 
-    with pytest.raises(ValueError, match="Error in return type: typing.Dict is not supported."):
+    with pytest.raises(ValueError, match=re.escape("Error in return type for function 'func_with_plain_dict_return': typing.Dict. Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int].")):
         generate_sql_function_body(
             func_with_plain_dict_return,
             "test_catalog",
