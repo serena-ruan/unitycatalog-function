@@ -21,7 +21,7 @@ def mock_message_single_tool():
         id="toolu_01A09q90qw90lq917835lq9",
         name="catalog__schema__get_weather",
         input={"location": "San Francisco, CA", "unit": "celsius"},
-        type="tool_use"
+        type="tool_use",
     )
     response = Mock(spec=Message)
     response.stop_reason = "tool_use"
@@ -36,13 +36,13 @@ def mock_message_multiple_tools():
         id="toolu_01A09q90qw90lq917835lq9",
         name="catalog__schema__get_weather",
         input={"location": "San Francisco, CA", "unit": "celsius"},
-        type="tool_use"
+        type="tool_use",
     )
     tool_use_block_2 = ToolUseBlock(
         id="toolu_02B24q89qw70lq986423lq6",
         name="catalog__schema__get_weather",
         input={"location": "New York, NY", "unit": "fahrenheit"},
-        type="tool_use"
+        type="tool_use",
     )
     response = Mock(spec=Message)
     response.stop_reason = "tool_use"
@@ -55,7 +55,12 @@ def mock_message_multiple_tools():
 def dummy_history():
     return {
         "role": "user",
-        "content": "Testing!"
+        "content": [
+            {
+                "type": "text",
+                "text": "What's the weather like in San Francisco?",
+            }
+        ],
     }
 
 
@@ -90,7 +95,7 @@ def test_tool_call_data_execute(mock_client):
     tool_call = ToolCallData(
         function_name="catalog__schema__get_weather",
         arguments={"location": "San Francisco, CA", "unit": "celsius"},
-        tool_use_id="toolu_01A09q90qw90lq917835lq9"
+        tool_use_id="toolu_01A09q90qw90lq917835lq9",
     )
     result = tool_call.execute(mock_client)
 
@@ -100,8 +105,12 @@ def test_tool_call_data_execute(mock_client):
     assert result == "65 degrees"
 
 
-def test_generate_tool_call_messages_single_tool(mock_message_single_tool, mock_client, dummy_history):
-    result = generate_tool_call_messages(response=mock_message_single_tool, conversation_history=dummy_history, client=mock_client)
+def test_generate_tool_call_messages_single_tool(
+    mock_message_single_tool, mock_client, dummy_history
+):
+    result = generate_tool_call_messages(
+        response=mock_message_single_tool, conversation_history=dummy_history, client=mock_client
+    )
 
     assert len(result) == 3
     conversational_history, assistant_message, tool_response_message = result
@@ -116,8 +125,12 @@ def test_generate_tool_call_messages_single_tool(mock_message_single_tool, mock_
     assert tool_message_content["content"] == "65 degrees"
 
 
-def test_generate_tool_call_messages_multiple_tools(mock_message_multiple_tools, mock_client, dummy_history):
-    result = generate_tool_call_messages(response=mock_message_multiple_tools, conversation_history=dummy_history, client=mock_client)
+def test_generate_tool_call_messages_multiple_tools(
+    mock_message_multiple_tools, mock_client, dummy_history
+):
+    result = generate_tool_call_messages(
+        response=mock_message_multiple_tools, conversation_history=dummy_history, client=mock_client
+    )
 
     assert len(result) == 3
     conversational_history, assistant_message, tool_response_message = result
@@ -145,7 +158,9 @@ def test_generate_tool_call_messages_no_tool_use(mock_client, dummy_history):
     response.content = []
     response.role = "assistant"
 
-    result = generate_tool_call_messages(response=response, conversation_history=dummy_history, client=mock_client)
+    result = generate_tool_call_messages(
+        response=response, conversation_history=dummy_history, client=mock_client
+    )
     assert len(result) == 2
 
     history, assistant_message = result
@@ -160,7 +175,9 @@ def test_generate_tool_call_messages_empty_content(mock_client, dummy_history):
     response.content = []
     response.role = "assistant"
 
-    result = generate_tool_call_messages(response=response, conversation_history=dummy_history, client=mock_client)
+    result = generate_tool_call_messages(
+        response=response, conversation_history=dummy_history, client=mock_client
+    )
 
     assert len(result) == 2
 
@@ -171,30 +188,33 @@ def test_generate_tool_call_messages_empty_content(mock_client, dummy_history):
     assert assistant_message == {"role": "assistant", "content": []}
 
 
-def test_generate_tool_call_messages_validate_default_client(mock_message_single_tool, dummy_history):
+def test_generate_tool_call_messages_validate_default_client(
+    mock_message_single_tool, dummy_history
+):
     client = None
 
     with pytest.raises(ValueError, match="No client provided"):
-        generate_tool_call_messages(response=mock_message_single_tool, conversation_history=dummy_history, client=client)
+        generate_tool_call_messages(
+            response=mock_message_single_tool, conversation_history=dummy_history, client=client
+        )
 
 
 def test_generate_tool_call_messages_with_text_block(mock_client, dummy_history):
-    text_block = TextBlock(
-        text="Fetching weather data for San Francisco, CA...",
-        type="text"
-    )
+    text_block = TextBlock(text="Fetching weather data for San Francisco, CA...", type="text")
     tool_use_block = ToolUseBlock(
         id="toolu_01A09q90qw90lq917835lq9",
         name="catalog__schema__get_weather",
         input={"location": "San Francisco, CA", "unit": "celsius"},
-        type="tool_use"
+        type="tool_use",
     )
     response = Mock(spec=Message)
     response.stop_reason = "tool_use"
     response.content = [text_block, tool_use_block]
     response.role = "assistant"
 
-    result = generate_tool_call_messages(response=response, conversation_history=dummy_history, client=mock_client)
+    result = generate_tool_call_messages(
+        response=response, conversation_history=dummy_history, client=mock_client
+    )
 
     assert len(result) == 3
     conversational_history, assistant_message, tool_response_message = result
@@ -202,7 +222,9 @@ def test_generate_tool_call_messages_with_text_block(mock_client, dummy_history)
     assert conversational_history == dummy_history
 
     assert assistant_message["content"][0]["type"] == "text"
-    assert assistant_message["content"][0]["text"] == "Fetching weather data for San Francisco, CA..."
+    assert (
+        assistant_message["content"][0]["text"] == "Fetching weather data for San Francisco, CA..."
+    )
 
     assert tool_response_message["content"][0]["type"] == "tool_result"
     assert tool_response_message["content"][0]["tool_use_id"] == "toolu_01A09q90qw90lq917835lq9"
@@ -215,12 +237,13 @@ def test_generate_tool_call_messages_with_invalid_tool_use_block(mock_client, du
     tool_use_block.name = "catalog__schema__get_weather"
     tool_use_block.input = {"location": "San Francisco, CA", "unit": "celsius"}
     tool_use_block.type = "tool_use"
-    
+
     response = Mock(spec=Message)
     response.stop_reason = "tool_use"
     response.content = [tool_use_block]
     response.role = "assistant"
 
     with pytest.raises(ValueError, match="Tool use block is missing an ID"):
-        generate_tool_call_messages(response=response, conversation_history=dummy_history, client=mock_client)
-
+        generate_tool_call_messages(
+            response=response, conversation_history=dummy_history, client=mock_client
+        )

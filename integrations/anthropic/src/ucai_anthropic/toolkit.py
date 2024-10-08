@@ -14,6 +14,7 @@ class AnthropicTool(BaseModel):
     """
     Model representing an Anthropic tool.
     """
+
     name: str = Field(
         description="The name of the function.",
     )
@@ -41,17 +42,17 @@ class UCFunctionToolkit(BaseModel):
     """
     A toolkit for managing Unity Catalog functions and converting them into Anthropic tools.
     """
+
     function_names: List[str] = Field(
         default_factory=list,
         description="List of function names in 'catalog.schema.function' format.",
     )
     tools_dict: Dict[str, AnthropicTool] = Field(
         default_factory=dict,
-        description="Dictionary mapping function names to their corresponding Anthropic tools."
+        description="Dictionary mapping function names to their corresponding Anthropic tools.",
     )
     client: Optional[BaseFunctionClient] = Field(
-        default=None,
-        description="The client for managing functions."
+        default=None, description="The client for managing functions."
     )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -61,16 +62,12 @@ class UCFunctionToolkit(BaseModel):
         """
         Validates the toolkit, ensuring the client is properly set and function names are processed.
         """
-        client = validate_or_set_default_client(self.client)
-        self.client = client
-
-        function_names = self.function_names
-        tools_dict = self.tools_dict
+        self.client = validate_or_set_default_client(self.client)
 
         self.tools_dict = process_function_names(
-            function_names=function_names,
-            tools_dict=tools_dict,
-            client=client,
+            function_names=self.function_names,
+            tools_dict=self.tools_dict,
+            client=self.client,
             uc_function_to_tool_func=self.uc_function_to_anthropic_tool,
         )
         return self
@@ -108,8 +105,8 @@ class UCFunctionToolkit(BaseModel):
 
         input_schema = {
             "type": "object",
-            "properties": fn_schema.pydantic_model.model_json_schema()["properties"],
-            "required": fn_schema.pydantic_model.model_json_schema().get("required", [])
+            "properties": fn_schema.pydantic_model.model_json_schema().get("properties", {}),
+            "required": fn_schema.pydantic_model.model_json_schema().get("required", []),
         }
 
         return AnthropicTool(
@@ -124,4 +121,3 @@ class UCFunctionToolkit(BaseModel):
         Retrieves the list of Anthropic tools managed by the toolkit.
         """
         return list(self.tools_dict.values())
-

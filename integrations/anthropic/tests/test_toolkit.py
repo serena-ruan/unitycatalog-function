@@ -28,7 +28,7 @@ def mock_anthropic_tool_response(function_name, input_data):
             ),
         ],
         role="assistant",
-        model="claude-3-5-sonnet-20240620"
+        model="claude-3-5-sonnet-20240620",
     )
 
 
@@ -37,7 +37,10 @@ def mock_anthropic_tool_response(function_name, input_data):
 def test_tool_calling_with_anthropic(use_serverless, monkeypatch):
     monkeypatch.setenv("USE_SERVERLESS", str(use_serverless))
     client = get_client()
-    with set_default_client(client), create_function_and_cleanup(client, return_func_name=True) as func_obj:
+    with (
+        set_default_client(client),
+        create_function_and_cleanup(client, return_func_name=True) as func_obj,
+    ):
         func_name = func_obj.full_function_name
         toolkit = UCFunctionToolkit(function_names=[func_name])
         tools = toolkit.tools
@@ -55,10 +58,7 @@ def test_tool_calling_with_anthropic(use_serverless, monkeypatch):
             ),
         ):
             response = Anthropic().messages.create(
-                model="claude-3-5-sonnet-20240620",
-                messages=messages,
-                tools=tools,
-                max_tokens=512
+                model="claude-3-5-sonnet-20240620", messages=messages, tools=tools, max_tokens=512
             )
 
             tool_calls = response.content
@@ -83,7 +83,11 @@ def test_tool_calling_with_anthropic(use_serverless, monkeypatch):
 
             final_response = Anthropic().messages.create(
                 model="claude-3-5-sonnet-20240620",
-                messages=[*messages, {"role": "assistant", "content": tool_calls}, function_call_result_message],
+                messages=[
+                    *messages,
+                    {"role": "assistant", "content": tool_calls},
+                    function_call_result_message,
+                ],
                 tools=tools,
                 max_tokens=200,
             )
@@ -94,7 +98,10 @@ def test_tool_calling_with_anthropic(use_serverless, monkeypatch):
 def test_tool_calling_with_multiple_tools_anthropic(use_serverless, monkeypatch):
     monkeypatch.setenv("USE_SERVERLESS", str(use_serverless))
     client = get_client()
-    with set_default_client(client), create_function_and_cleanup(client, return_func_name=True) as func_obj:
+    with (
+        set_default_client(client),
+        create_function_and_cleanup(client, return_func_name=True) as func_obj,
+    ):
         func_name = func_obj.full_function_name
         toolkit = UCFunctionToolkit(function_names=[func_name])
         tools = toolkit.tools
@@ -112,10 +119,7 @@ def test_tool_calling_with_multiple_tools_anthropic(use_serverless, monkeypatch)
             ),
         ):
             response = Anthropic().messages.create(
-                model="claude-3-5-sonnet-20240620",
-                messages=messages,
-                tools=tools,
-                max_tokens=512
+                model="claude-3-5-sonnet-20240620", messages=messages, tools=tools, max_tokens=512
             )
             tool_calls = response.content
             assert len(tool_calls) == 2
@@ -145,7 +149,11 @@ def test_tool_calling_with_multiple_tools_anthropic(use_serverless, monkeypatch)
             ):
                 Anthropic().messages.create(
                     model="claude-3-5-sonnet-20240620",
-                    messages=[*messages, {"role": "assistant", "content": tool_calls}, function_call_result_message],
+                    messages=[
+                        *messages,
+                        {"role": "assistant", "content": tool_calls},
+                        function_call_result_message,
+                    ],
                     tools=tools,
                     max_tokens=200,
                 )
@@ -206,8 +214,7 @@ def test_anthropic_tool_definition_generation(use_serverless, monkeypatch):
         )
 
         function_definition = UCFunctionToolkit.uc_function_to_anthropic_tool(
-            function_info=function_info,
-            client=client
+            function_info=function_info, client=client
         )
 
         assert function_definition.to_dict() == {

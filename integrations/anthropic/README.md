@@ -98,7 +98,7 @@ question = [{"role": "user", "content": multi}]
 response = anthropic_client.messages.create(
     model="claude-3-5-sonnet-20240620",
     max_tokens=1024,
-    tools=tools.tools,
+    tools=tools,
     messages=question,
 )
 
@@ -136,7 +136,7 @@ tool_messages = generate_tool_call_messages(response=response, client=client, co
 tool_response = client.messages.create(
     model="claude-3-5-sonnet-20240620",
     max_tokens=1024,
-    tools=tools.tools,
+    tools=tools,
     messages=tool_messages,
 )
 
