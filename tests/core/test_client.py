@@ -1,6 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import pytest
 from typing_extensions import override
@@ -32,6 +32,12 @@ class MockClient(BaseFunctionClient):
     @override
     def create_function(self, function_info: Any) -> Any:
         return function_info
+
+    @override
+    def create_python_function(
+        self, func: Callable, func_comment: str, catalog: str, schema: str
+    ) -> Any:
+        return ""
 
     @override
     def get_function(self, function_name: str, **kwargs: Any) -> Any:

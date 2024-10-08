@@ -1,9 +1,10 @@
 import base64
 import datetime
 import os
+import re
 import time
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, NamedTuple
+from typing import Any, Callable, Dict, List, NamedTuple, Union
 from unittest import mock
 
 import pytest
@@ -34,6 +35,7 @@ from ucai.test_utils.client_utils import (
 )
 from ucai.test_utils.function_utils import (
     CATALOG,
+    create_python_function_and_cleanup,
     generate_func_name_and_cleanup,
     random_func_name,
 )
@@ -43,6 +45,12 @@ SCHEMA = os.environ.get("SCHEMA", "ucai_core_test")
 
 class FunctionInputOutput(NamedTuple):
     sql_body: str
+    inputs: List[Dict[str, Any]]
+    output: str
+
+
+class PythonFunctionInputOutput(NamedTuple):
+    func: Callable
     inputs: List[Dict[str, Any]]
     output: str
 
@@ -221,6 +229,131 @@ RETURN SELECT extract(DAYOFWEEK_ISO FROM day), day
     )
 
 
+def python_function_with_dict_input() -> PythonFunctionInputOutput:
+    def function_with_dict_input(s: Dict[str, int]) -> int:
+        """Python function that sums the values in a dictionary."""
+        return sum(s.values())
+
+    return PythonFunctionInputOutput(
+        func=function_with_dict_input,
+        inputs=[{"s": {"a": 1, "b": 3, "c": 4}}],
+        output="8",
+    )
+
+
+def python_function_with_array_input() -> PythonFunctionInputOutput:
+    def function_with_array_input(s: List[int]) -> str:
+        """Python function with array input"""
+        return ",".join(str(i) for i in s)
+
+    return PythonFunctionInputOutput(
+        func=function_with_array_input,
+        inputs=[{"s": [1, 2, 3]}],
+        output="1,2,3",
+    )
+
+
+def python_function_with_string_input() -> PythonFunctionInputOutput:
+    def function_with_string_input(s: str) -> str:
+        """Python function with string input"""
+        return s
+
+    return PythonFunctionInputOutput(
+        func=function_with_string_input,
+        inputs=[{"s": "abc"}],
+        output="abc",
+    )
+
+
+def python_function_with_binary_input() -> PythonFunctionInputOutput:
+    def function_with_binary_input(s: bytes) -> str:
+        """Python function with binary input"""
+        return s.decode("utf-8")
+
+    return PythonFunctionInputOutput(
+        func=function_with_binary_input,
+        inputs=[
+            {"s": base64.b64encode(b"Hello").decode("utf-8")},
+            {"s": "SGVsbG8="},
+        ],
+        output="Hello",
+    )
+
+
+def python_function_with_interval_input() -> PythonFunctionInputOutput:
+    def function_with_interval_input(s: datetime.timedelta) -> str:
+        """Python function with interval input"""
+        import datetime
+
+        return (datetime.datetime(2024, 8, 19) - s).isoformat()
+
+    return PythonFunctionInputOutput(
+        func=function_with_interval_input,
+        inputs=[
+            {"s": datetime.timedelta(days=0, hours=0, minutes=16, seconds=40, microseconds=123456)},
+            {"s": datetime.timedelta(days=0, seconds=1000, microseconds=123456)},
+        ],
+        output="2024-08-18T23:43:19.876544",
+    )
+
+
+def python_function_with_timestamp_input() -> PythonFunctionInputOutput:
+    def function_with_timestamp_input(x: datetime.datetime, y: datetime.datetime) -> str:
+        """Python function with timestamp input"""
+        return str(x.isoformat()) + "; " + str(y.isoformat())
+
+    return PythonFunctionInputOutput(
+        func=function_with_timestamp_input,
+        inputs=[
+            {
+                "x": datetime.datetime(2024, 8, 19, 11, 2, 3),
+                "y": datetime.datetime(2024, 8, 19, 11, 2, 3),
+            },
+            {"x": "2024-08-19T11:02:03", "y": "2024-08-19T11:02:03"},
+        ],
+        output="2024-08-19T11:02:03+00:00; 2024-08-19T11:02:03+00:00",
+    )
+
+
+def python_function_with_date_input() -> PythonFunctionInputOutput:
+    def function_with_date_input(s: datetime.date) -> str:
+        """Python function with date input"""
+        return s.isoformat()
+
+    return PythonFunctionInputOutput(
+        func=function_with_date_input,
+        inputs=[{"s": datetime.date(2024, 8, 19)}, {"s": "2024-08-19"}],
+        output="2024-08-19",
+    )
+
+
+def python_function_with_map_input() -> PythonFunctionInputOutput:
+    def function_with_map_input(s: Dict[str, List[int]]) -> str:
+        """Python function with map input"""
+        result = []
+        for key, value in s.items():
+            result.append(str(key) + " => " + str(value))
+        return ",".join(result)
+
+    return PythonFunctionInputOutput(
+        func=function_with_map_input,
+        inputs=[{"s": {"a": [1, 2, 3], "b": [4, 5, 6]}}],
+        output="a => [1, 2, 3],b => [4, 5, 6]",
+    )
+
+
+def python_function_with_decimal_input() -> PythonFunctionInputOutput:
+    def function_with_decimal_input(s: Decimal) -> str:
+        """Python function with decimal input."""
+        return format(s, ".20g")
+
+    return PythonFunctionInputOutput(
+        func=function_with_decimal_input,
+        inputs=[{"s": Decimal("123.45123456789457000")}],
+        output="123.45123456789457000",
+    )
+
+
 @requires_databricks
 @pytest.mark.parametrize(
     "create_function",
@@ -273,6 +406,31 @@ def test_create_and_execute_function_using_serverless(
         serverless_client.create_function(sql_function_body=function_sample.sql_body)
         for input_example in function_sample.inputs:
             result = serverless_client.execute_function(func_name, input_example)
+            assert result.value == function_sample.output
+
+
+@requires_databricks
+@pytest.mark.parametrize(
+    "create_function",
+    [
+        python_function_with_dict_input,
+        python_function_with_array_input,
+        python_function_with_string_input,
+        python_function_with_binary_input,
+        python_function_with_interval_input,
+        python_function_with_timestamp_input,
+        python_function_with_date_input,
+        python_function_with_map_input,
+        python_function_with_decimal_input,
+    ],
+)
+def test_create_and_execute_python_function(
+    client: DatabricksFunctionClient, create_function: Callable[[], PythonFunctionInputOutput]
+):
+    function_sample = create_function()
+    with create_python_function_and_cleanup(client, function_sample.func) as func_obj:
+        for input_example in function_sample.inputs:
+            result = client.execute_function(func_obj.full_function_name, input_example)
             assert result.value == function_sample.output
 
 
@@ -811,3 +969,212 @@ $$
         time_total2 = time.time() - time2
         # 30s - 10s = 20s, the time difference should be around 20s
         assert abs(abs(time_total2 - time_total1) - 20) < 5
+
+
+@requires_databricks
+def test_create_and_execute_python_function(client: DatabricksFunctionClient):
+    def simple_func(x: int) -> str:
+        """Test function that returns the string version of x."""
+        return str(x)
+
+    with create_python_function_and_cleanup(client, func=simple_func) as func_obj:
+        result = client.execute_function(func_obj.full_function_name, {"x": 10})
+        assert result.value == "10"
+
+
+def test_create_python_function_with_invalid_arguments(client: DatabricksFunctionClient):
+    def invalid_func(self, x: int) -> str:
+        """Function with 'self' in the argument."""
+        return str(x)
+
+    with pytest.raises(
+        ValueError, match="Parameter 'self' is not allowed in the function signature."
+    ):
+        client.create_python_function(func=invalid_func, catalog=CATALOG, schema=SCHEMA)
+
+    def another_invalid_func(cls, x: int) -> str:
+        """Function with 'cls' in the argument."""
+        return str(x)
+
+    with pytest.raises(
+        ValueError, match="Parameter 'cls' is not allowed in the function signature."
+    ):
+        client.create_python_function(func=another_invalid_func, catalog=CATALOG, schema=SCHEMA)
+
+
+@requires_databricks
+def test_create_python_function_with_complex_body(client: DatabricksFunctionClient):
+    def complex_func(a: int, b: int) -> int:
+        """A complex function that uses a try-except block and returns the sum."""
+        try:
+            return a + b
+        except Exception as e:
+            raise ValueError(f"Failed to add numbers") from e
+
+    with create_python_function_and_cleanup(client, func=complex_func) as func_obj:
+        result = client.execute_function(func_obj.full_function_name, {"a": 1, "b": 2})
+        assert result.value == "3"
+
+
+@requires_databricks
+def test_create_python_function_with_docstring_comments(client: DatabricksFunctionClient):
+    def documented_func(a: int, b: int) -> int:
+        """
+        Adds two integers.
+
+        Args:
+            a: The first integer.
+            b: The second integer.
+
+        Returns:
+            int: The sum of a and b.
+        """
+        return a + b
+
+    with create_python_function_and_cleanup(client, func=documented_func) as func_obj:
+        result = client.execute_function(func_obj.full_function_name, {"a": 5, "b": 3})
+        assert result.value == "8"
+
+
+def test_create_python_function_missing_return_type(client: DatabricksFunctionClient):
+    def missing_return_type_func(a: int, b: int):
+        """A function that lacks a return type."""
+        return a + b
+
+    with pytest.raises(
+        ValueError,
+        match="Return type for function 'missing_return_type_func' is not defined. Please provide a return type.",
+    ):
+        client.create_python_function(func=missing_return_type_func, catalog=CATALOG, schema=SCHEMA)
+
+
+def test_create_python_function_not_callable(client: DatabricksFunctionClient):
+    scalar = 42
+
+    with pytest.raises(ValueError, match="The provided function is not callable"):
+        client.create_python_function(func=scalar, catalog=CATALOG, schema=SCHEMA)
+
+
+@requires_databricks
+def test_function_with_list_of_int_return(client: DatabricksFunctionClient):
+    def func_returning_list(a: int) -> List[int]:
+        """
+        A function that returns a list of integers.
+
+        Args:
+            a: An integer to generate the list.
+
+        Returns:
+            List[int]: A list of integers from 0 to a.
+        """
+        return list(range(a))
+
+    with create_python_function_and_cleanup(client, func=func_returning_list) as func_obj:
+        result = client.execute_function(func_obj.full_function_name, {"a": 3})
+        assert result.value == "[0, 1, 2]"
+
+
+@requires_databricks
+def test_function_with_dict_of_string_to_int_return(client: DatabricksFunctionClient):
+    def func_returning_map(a: int) -> Dict[str, int]:
+        """
+        A function that returns a map from string to integer.
+
+        Args:
+            a: The integer to use in generating the map.
+
+        Returns:
+            Dict[str, int]: A map of string keys to integer values.
+        """
+        return {f"key_{i}": i for i in range(a)}
+
+    with create_python_function_and_cleanup(client, func=func_returning_map) as func_obj:
+        result = client.execute_function(func_obj.full_function_name, {"a": 3})
+        assert result.value == "{'key_0': 0, 'key_1': 1, 'key_2': 2}"
+
+
+def test_function_with_invalid_list_return_type(client: DatabricksFunctionClient):
+    def func_with_invalid_list_return(a: int) -> List:
+        """A function returning a list without specifying the element type."""
+        return list(range(a))
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Error in return type for function 'func_with_invalid_list_return': typing.List. Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int]."
+        ),
+    ):
+        client.create_python_function(
+            func=func_with_invalid_list_return, catalog=CATALOG, schema=SCHEMA
+        )
+
+
+def test_function_with_invalid_dict_return_type(client: DatabricksFunctionClient):
+    def func_with_invalid_dict_return(a: int) -> Dict:
+        """A function returning a dict without specifying key and value types."""
+        return {f"key_{i}": i for i in range(a)}
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Error in return type for function 'func_with_invalid_dict_return': typing.Dict. Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int]."
+        ),
+    ):
+        client.create_python_function(
+            func=func_with_invalid_dict_return, catalog=CATALOG, schema=SCHEMA
+        )
+
+
+def test_function_with_union_return_type(client: DatabricksFunctionClient):
+    def func_with_union_return(a: int) -> Union[str, int]:
+        """A function returning a union type."""
+        return a if a % 2 == 0 else str(a)
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Error in return type for function 'func_with_union_return': typing.Union[str, int]. Union types are not supported in return types."
+        ),
+    ):
+        client.create_python_function(func=func_with_union_return, catalog=CATALOG, schema=SCHEMA)
+
+
+@requires_databricks
+def test_replace_existing_function(client: DatabricksFunctionClient):
+    def simple_func(x: int) -> str:
+        """Test function that returns the string version of x."""
+        return str(x)
+
+    # Create the function for the first time
+    with create_python_function_and_cleanup(client, func=simple_func) as func_obj:
+        result = client.execute_function(func_obj.full_function_name, {"x": 42})
+        assert result.value == "42"
+
+        # Modify the function definition
+        def simple_func_modified(x: int) -> str:
+            """Modified function that returns 'Modified: ' plus the string version of x."""
+            return f"Modified: {x}"
+
+        # Replace the existing function
+        client.create_python_function(
+            func=simple_func_modified, catalog=CATALOG, schema=SCHEMA, replace=True
+        )
+
+        # Execute the function again to verify it has been replaced
+        result = client.execute_function(func_obj.full_function_name, {"x": 42})
+        assert result.value == "Modified: 42"
+
+
+@requires_databricks
+def test_create_function_without_replace(client: DatabricksFunctionClient):
+    def simple_func(x: int) -> str:
+        """Test function that returns the string version of x."""
+        return str(x)
+
+    # Create the function for the first time
+    with create_python_function_and_cleanup(client, func=simple_func):
+        # Attempt to create the same function again without replace
+        with pytest.raises(RuntimeError, match="Failed to create function for simple_func"):
+            client.create_python_function(
+                func=simple_func, catalog=CATALOG, schema=SCHEMA, replace=False
+            )
