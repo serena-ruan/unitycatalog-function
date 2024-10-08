@@ -1,8 +1,14 @@
+import os
+os.environ["WAREHOUSE_ID"] = "475b94ddc7cd5211"
+os.environ["SCHEMA"] = "default"
+
+# MAIN
 import json
 import os
 from unittest import mock
 
 import pytest
+
 from databricks.sdk.service.catalog import (
     FunctionInfo,
     FunctionParameterInfo,
@@ -21,14 +27,17 @@ from ucai.test_utils.client_utils import (
     set_default_client,
 )
 from ucai.test_utils.function_utils import (
-    CATALOG,
+    #TODO
+    # CATALOG,
     create_function_and_cleanup,
 )
 
-from ucai_crewai.toolkit import UCFunctionToolkit
+from ucai_crewai.toolkit import UCFunctionToolkit, _CREWAI_KWARGS_FROM_USER
 
 
-SCHEMA = os.environ.get("SCHEMA", "ucai_llama_index_test")
+SCHEMA = os.environ.get("SCHEMA", "ucai_crewai_test")
+# TODO
+CATALOG = "main"
 
 
 @requires_databricks
@@ -38,13 +47,13 @@ def test_toolkit_e2e(use_serverless, monkeypatch):
     client = get_client()
     with set_default_client(client), create_function_and_cleanup(client, schema=SCHEMA) as func_obj:
         toolkit = UCFunctionToolkit(
-            function_names=[func_obj.full_function_name], return_direct=True
+            function_names=[func_obj.full_function_name]
         )
         tools = toolkit.tools
         assert len(tools) == 1
         tool = tools[0]
-        assert tool.name == func_obj.tool_name
-        assert tool.description == func_obj.comment
+        assert func_obj.full_function_name.replace(".", "__") in tool.description 
+        assert func_obj.comment in tool.description 
         assert tool.client_config == client.to_dict()
 
         input_args = {"code": "print(1)"}
@@ -63,14 +72,14 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
     client = get_client()
     with set_default_client(client), create_function_and_cleanup(client, schema=SCHEMA) as func_obj:
         toolkit = UCFunctionToolkit(
-            function_names=[func_obj.full_function_name], client=client, return_direct=True
+            function_names=[func_obj.full_function_name], client=client
         )
         tools = toolkit.tools
         assert len(tools) == 1
         tool = tools[0]
         assert tool.name == func_obj.tool_name
-        # assert tool.return_direct
-        assert tool.description == func_obj.comment
+        assert func_obj.full_function_name.replace(".", "__") in tool.description 
+        assert func_obj.comment in tool.description 
         assert tool.client_config == client.to_dict()
         input_args = {"code": "print(1)"}
         result = json.loads(tool.fn(**input_args))["value"]
@@ -150,10 +159,9 @@ def test_uc_function_to_crewai_tool(client):
         ),
     ):
         tool = UCFunctionToolkit.uc_function_to_crewai_tool(
-            function_name=f"{CATALOG}.{SCHEMA}.test", client=client, return_direct=True
+            function_name=f"{CATALOG}.{SCHEMA}.test", client=client, cache_function=lambda: False
         )
-        # Validate passthrough of LlamaIndex argument
-        # assert tool.return_direct
+        assert not tool.cache_function()
 
         result = json.loads(tool.fn(x="some_string"))["value"]
         assert result == "some_string"
@@ -172,8 +180,28 @@ def test_toolkit_with_invalid_function_input(client):
         # Test with invalid input params that are not matching expected schema
         invalid_inputs = {"unexpected_key": "value"}
         tool = UCFunctionToolkit.uc_function_to_crewai_tool(
-            function_name="catalog.schema.test", client=client, return_direct=True
+            function_name="catalog.schema.test", client=client
         )
 
         with pytest.raises(ValueError, match="Extra parameters provided that are not defined"):
             tool.fn(**invalid_inputs)
+
+def test_toolkit_crewai_kwarg_passthrough(client):
+    """Test toolkit with invalid input parameters for function conversion."""
+    mock_function_info = generate_function_info()
+
+    with (
+        mock.patch(
+            "ucai.core.utils.client_utils.validate_or_set_default_client", return_value=client
+        ),
+        mock.patch.object(client, "get_function", return_value=mock_function_info),
+    ):
+        values = [False, lambda: False, False]
+        kwargs = {k: v for k,v in zip(_CREWAI_KWARGS_FROM_USER, values)}
+        tool = UCFunctionToolkit.uc_function_to_crewai_tool(
+            function_name="catalog.schema.test", client=client, **kwargs
+        )
+
+        for k in _CREWAI_KWARGS_FROM_USER:
+            assert hasattr(tool, k)
+
