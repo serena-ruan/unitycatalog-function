@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
-from anthropic.types import ContentBlock, Message, ToolUseBlock
+from anthropic.types import ContentBlock, Message, MessageParam, ToolUseBlock
 from pydantic import BaseModel, Field, ValidationError
 from ucai.core.client import BaseFunctionClient
 from ucai.core.utils.client_utils import validate_or_set_default_client
@@ -11,8 +11,9 @@ class ConversationMessage(BaseModel):
     role: str = Field(
         ..., description="The role of the message sender, e.g., 'user' or 'assistant'."
     )
-    content: List[ContentBlock] = Field(
-        ..., description="The content of the message, can be text, tool usage, or tool result."
+    content: Union[str, List[MessageParam], List[ContentBlock]] = Field(
+        ...,
+        description="The content of the message, whether from an original user question or an assistant response.",
     )
 
 

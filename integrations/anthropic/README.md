@@ -71,7 +71,7 @@ To begin, we will need an instance of the tool function interface from the `ucai
 from ucai_anthropic.toolkit import UCFunctionToolkit
 
 # Create an instance of the toolkit with the function that was created earlier.
-toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.python_exec"])
+toolkit = UCFunctionToolkit(function_names=[f"{CATALOG}.{SCHEMA}.python_exec"], client=client)
 
 # Access the tool definitions that are in the interface that Anthropic's SDK expects
 tools = tookit.tools
@@ -112,7 +112,7 @@ and the inputs to provide to the defined tool's function.
 
 There are two ways of calling the function within UC:
 
-- Use the `generate_tool_call_messages` function on the response. 
+- Use the `generate_tool_call_messages` function on the response.
 
 **This is the recommended API to use to simplify your workstream**. This option will extract the tool calling instructions, execute the appropriate
 functions in Unity Catalog, and return the payload needed to call the `anthropic.Anthropic.messages.create` API directly. If there are no tool
@@ -133,7 +133,7 @@ from ucai_anthropic.utils import generate_tool_call_messages
 tool_messages = generate_tool_call_messages(response=response, client=client, conversation_history=question)
 
 # Call the Anthropic client with the parsed tool response from executing the Unity Catalog function
-tool_response = client.messages.create(
+tool_response = anthropic_client.messages.create(
     model="claude-3-5-sonnet-20240620",
     max_tokens=1024,
     tools=tools,
