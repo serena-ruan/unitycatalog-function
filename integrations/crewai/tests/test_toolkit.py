@@ -1,14 +1,8 @@
-import os
-os.environ["WAREHOUSE_ID"] = "475b94ddc7cd5211"
-os.environ["SCHEMA"] = "default"
-
-# MAIN
 import json
 import os
 from unittest import mock
 
 import pytest
-
 from databricks.sdk.service.catalog import (
     FunctionInfo,
     FunctionParameterInfo,
@@ -18,7 +12,6 @@ from pydantic import ValidationError
 from ucai.core.client import (
     FunctionExecutionResult,
 )
-from ucai.core.utils.function_processing_utils import get_tool_name
 from ucai.test_utils.client_utils import (
     USE_SERVERLESS,
     client,  # noqa: F401
@@ -31,8 +24,7 @@ from ucai.test_utils.function_utils import (
     create_function_and_cleanup,
 )
 
-from ucai_crewai.toolkit import UCFunctionToolkit, _CREWAI_KWARGS_FROM_USER
-
+from ucai_crewai.toolkit import _CREWAI_KWARGS_FROM_USER, UCFunctionToolkit
 
 SCHEMA = os.environ.get("SCHEMA", "ucai_crewai_test")
 

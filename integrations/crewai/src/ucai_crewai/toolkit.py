@@ -3,7 +3,7 @@ import logging
 from typing import Any, Callable, Dict, List, Optional
 
 from crewai_tools import BaseTool as CrewAIBaseTool
-from pydantic import BaseModel, ConfigDict, Field, model_validator, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from ucai.core.client import BaseFunctionClient
 from ucai.core.utils.client_utils import validate_or_set_default_client
 from ucai.core.utils.function_processing_utils import (
@@ -11,7 +11,6 @@ from ucai.core.utils.function_processing_utils import (
     get_tool_name,
     process_function_names,
 )
-
 
 _logger = logging.getLogger(__name__)
 
@@ -34,7 +33,7 @@ class UnityCatalogTool(CrewAIBaseTool):
         description="Configuration of the client for managing the tool"
     )
 
-    def __init__(self, fn: Callable, client_config: Dict[str, Any], *args, **kwargs):
+    def __init__(self, fn: Callable, client_config: Dict[str, Any], **kwargs):
         """
         A tool class that integrates Unity Catalog functions into a tool structure.
 
@@ -45,7 +44,7 @@ class UnityCatalogTool(CrewAIBaseTool):
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.        
         """
-        super().__init__(fn=fn, client_config=client_config, *args, **kwargs)
+        super().__init__(fn=fn, client_config=client_config, **kwargs)
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
         """Override of the CrewAI BaseTool run method."""
