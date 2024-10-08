@@ -27,7 +27,7 @@ jobs:
       - name: Lint Python code with ruff
         run: |
           ruff check .
-          ruff format .
+          ruff format --check .
       - name: Lint YAML files with yamllint
         run: yamllint .
 
