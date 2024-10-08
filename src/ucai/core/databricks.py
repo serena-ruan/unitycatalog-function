@@ -217,7 +217,8 @@ class DatabricksFunctionClient(BaseFunctionClient):
         raise ValueError("Either function_info or sql_function_body should be provided.")
 
     @override
-    def create_python_function(self, *, func: Callable[..., Any], catalog: str, schema: str) -> "FunctionInfo":
+    def create_python_function(self, *, func: Callable[..., Any], catalog: str, schema: str, replace: bool = False) -> "FunctionInfo":
+        # TODO: migrate this guide to the documentation
         """
         Create a Unity Catalog (UC) function directly from a Python function.
 
@@ -232,18 +233,20 @@ class DatabricksFunctionClient(BaseFunctionClient):
             to generate the SQL signature of the UC function.
             - Supported Python types and their corresponding UC types are as follows:
             
-            | Python Type         | Unity Catalog Type |
-            |---------------------|--------------------|
-            | `int`               | `INTEGER`          |
-            | `float`             | `DOUBLE`           |
-            | `str`               | `STRING`           |
-            | `bool`              | `BOOLEAN`          |
-            | `Decimal`           | `DECIMAL`          |
-            | `datetime.date`     | `DATE`             |
-            | `datetime.datetime` | `TIMESTAMP`        |
-            | `list`              | `ARRAY`            |
-            | `tuple`             | `ARRAY`            |
-            | `dict`              | `MAP`              |
+            | Python Type          | Unity Catalog Type       |
+            |----------------------|--------------------------|
+            | `int`                | `INTEGER`                |
+            | `float`              | `DOUBLE`                 |
+            | `str`                | `STRING`                 |
+            | `bool`               | `BOOLEAN`                |
+            | `Decimal`            | `DECIMAL`                |
+            | `datetime.date`      | `DATE`                   |
+            | `datetime.timedelta` | `INTERVAL DAY TO SECOND` |
+            | `datetime.datetime`  | `TIMESTAMP`              |
+            | `list`               | `ARRAY`                  |
+            | `tuple`              | `ARRAY`                  |
+            | `dict`               | `MAP`                    |
+            | `bytes`              | `BINARY`                 |
 
             - **Example of a valid function**:
             ```python
@@ -337,10 +340,15 @@ class DatabricksFunctionClient(BaseFunctionClient):
         )
         ```
 
+        **Overwriting a function**:
+        - If a function with the same name already exists in the specified catalog and schema, the function will not be
+        created by default. To overwrite the existing function, set the `replace` parameter to `True`.
+
         Args:
             func (Callable): The Python function to convert into a UDF.
             catalog (str): The catalog name in which to create the function.
             schema (str): The schema name in which to create the function.
+            replace (bool): Whether to replace the function if it already exists. Defaults to False.
 
         Returns:
             FunctionInfo: Metadata about the created function, including its name and signature.
@@ -349,7 +357,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
         if not callable(func):
             raise ValueError("The provided function is not callable.")
 
-        sql_function_body = generate_sql_function_body(func, catalog, schema)
+        sql_function_body = generate_sql_function_body(func, catalog, schema, replace)
 
         try:
             return self.create_function(sql_function_body=sql_function_body)

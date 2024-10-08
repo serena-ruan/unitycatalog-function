@@ -15,7 +15,6 @@ class DocstringInfo:
     description: str
     params: Optional[dict[str, str]]
     returns: Optional[str]
-    raises: Optional[str]
 
 
 class FunctionBodyExtractor(ast.NodeVisitor):
@@ -56,10 +55,17 @@ class FunctionBodyExtractor(ast.NodeVisitor):
             self.indent_unit = min(indents)
 
 
+class State:
+    DESCRIPTION = "DESCRIPTION"
+    ARGS = "ARGS"
+    RETURNS = "RETURNS"
+    END = "END"
+
+
 def parse_docstring(docstring: str) -> DocstringInfo:
     """
     Parses the docstring to extract the function description, parameter comments,
-    return value description, and exceptions raised, without using regular expressions.
+    and return value description.
     Handles both reStructuredText and Google-style docstrings.
 
     Args:
@@ -78,16 +84,8 @@ def parse_docstring(docstring: str) -> DocstringInfo:
     description_lines = []
     parsed_params = {}
     returns = None
-    raises = None
     current_param = None
     param_description_lines = []
-
-    class State:
-        DESCRIPTION = "DESCRIPTION"
-        ARGS = "ARGS"
-        RETURNS = "RETURNS"
-        RAISES = "RAISES"
-        END = "END"
 
     state = State.DESCRIPTION
     lines = docstring.strip().splitlines()
@@ -106,9 +104,6 @@ def parse_docstring(docstring: str) -> DocstringInfo:
                 current_param = None
                 param_description_lines = []
             state = State.RETURNS
-            continue
-        elif stripped_line == "Raises:":
-            state = State.RAISES
             continue
         elif stripped_line == "" and state == State.ARGS and current_param:
             parsed_params[current_param] = ' '.join(param_description_lines).strip()
@@ -136,12 +131,6 @@ def parse_docstring(docstring: str) -> DocstringInfo:
                     returns = stripped_line
                 else:
                     returns += ' ' + stripped_line
-        elif state == State.RAISES:
-            if stripped_line:
-                if raises is None:
-                    raises = stripped_line
-                else:
-                    raises += ' ' + stripped_line
 
     if current_param and param_description_lines:
         parsed_params[current_param] = ' '.join(param_description_lines).strip()
@@ -151,7 +140,7 @@ def parse_docstring(docstring: str) -> DocstringInfo:
     if not description:
         raise ValueError("Function description is missing in the docstring. Please provide a function description.")
 
-    return DocstringInfo(description=description, params=parsed_params, returns=returns, raises=raises)
+    return DocstringInfo(description=description, params=parsed_params, returns=returns)
 
 
 
@@ -224,6 +213,11 @@ def format_default_value(default: Any) -> str:
     else:
         return str(default)
 
+def is_collection_type(type_hint: Any) -> bool:
+    """Checks if the type hint represents a collection type (list, tuple, dict)."""
+    origin = get_origin(type_hint)
+    return origin in (list, tuple, dict) or type_hint in (list, tuple, dict)
+
 def unwrap_function(func: Callable[..., Any]) -> Callable[..., Any]:
     """Unwraps staticmethod or classmethod to get the actual function."""
     if isinstance(func, (staticmethod, classmethod)):
@@ -257,11 +251,17 @@ def process_parameter(
 
     param_comment = docstring_info.params.get(param_name, f"Parameter {param_name}").replace("'", '"')
 
-    if param.default is inspect.Parameter.empty:
-        return f"{param_name} {sql_type} COMMENT '{param_comment}'"
-    else:
+    if param.default is not inspect.Parameter.empty:
+        if is_collection_type(param_hint):
+            raise ValueError(f"Parameter '{param_name}' of type '{param_hint}' cannot have a default value.")
+        if not isinstance(param.default, param_hint):
+            raise ValueError(
+                f"Default value for parameter '{param_name}' does not match the type hint '{param_hint}'."
+            )
         default_value = format_default_value(param.default)
         return f"{param_name} {sql_type} DEFAULT {default_value} COMMENT '{param_comment}'"
+    else:
+        return f"{param_name} {sql_type} COMMENT '{param_comment}'"
 
 
 def assemble_sql_body(
@@ -271,12 +271,14 @@ def assemble_sql_body(
     sql_params: list[str],
     sql_return_type: str,
     func_comment: str,
-    indented_body: str
+    indented_body: str,
+    replace: bool
 ) -> str:
+    replace_command = "CREATE OR REPLACE" if replace else "CREATE"
     """Assembles the final SQL function body."""
     sql_params_str = ', '.join(sql_params)
     sql_body = f"""
-CREATE OR REPLACE FUNCTION {catalog}.{schema}.{func_name}({sql_params_str})
+{replace_command} FUNCTION {catalog}.{schema}.{func_name}({sql_params_str})
 RETURNS {sql_return_type}
 LANGUAGE PYTHON
 COMMENT '{func_comment}'
@@ -289,7 +291,8 @@ $$;
 def generate_sql_function_body(
     func: Callable[..., Any],
     catalog: str,
-    schema: str
+    schema: str,
+    replace: bool = False
 ) -> str:
     """
     Generate SQL body for creating the function in Unity Catalog.
@@ -325,7 +328,7 @@ def generate_sql_function_body(
     func_comment = docstring_info.description.replace("'", '"')
 
     sql_body = assemble_sql_body(
-        catalog, schema, func_name, sql_params, sql_return_type, func_comment, indented_body
+        catalog, schema, func_name, sql_params, sql_return_type, func_comment, indented_body, replace
     )
 
     return sql_body
@@ -345,13 +348,10 @@ def validate_return_type(func_name: str, type_hints: dict[str, Any]) -> str:
         origin = get_origin(return_type_hint)
         args = get_args(return_type_hint)
         
-        # Check for base collection types without inner types
         if (origin in (list, tuple, dict) and not args) or (return_type_hint in (list, tuple, dict)):
             base_msg += " Please define the inner types, e.g., List[int], Tuple[str, int], Dict[str, int]."
-        # Check for Union types
         elif origin is Union or return_type_hint is Union:
             base_msg += " Union types are not supported in return types."
-        # Check for Any type
         elif return_type_hint is Any:
             base_msg += " 'Any' type is not supported. Please specify a concrete return type."
         else:

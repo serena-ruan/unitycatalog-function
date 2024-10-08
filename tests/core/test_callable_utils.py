@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pytest
 
@@ -14,7 +14,7 @@ def test_simple_function_no_docstring():
         """Simple addition"""
         return a + b
 
-    sql_body = generate_sql_function_body(simple_func, "test_catalog", "test_schema")
+    sql_body = generate_sql_function_body(simple_func, "test_catalog", "test_schema", True)
     
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.simple_func(a INTEGER COMMENT 'Parameter a', b INTEGER COMMENT 'Parameter b')
@@ -47,7 +47,7 @@ def test_function_with_multiline_docstring():
     sql_body = generate_sql_function_body(multiline_docstring_func, "test_catalog", "test_schema")
     
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.multiline_docstring_func(a INTEGER COMMENT 'The first number', b INTEGER COMMENT 'The second number')
+CREATE FUNCTION test_catalog.test_schema.multiline_docstring_func(a INTEGER COMMENT 'The first number', b INTEGER COMMENT 'The second number')
 RETURNS STRING
 LANGUAGE PYTHON
 COMMENT 'A function with a multiline docstring. This docstring spans multiple lines and describes the function in detail.'
@@ -76,7 +76,7 @@ def test_function_with_detailed_docstring():
             raise ValueError("Both numbers must be non-negative")
         return a + b
 
-    sql_body = generate_sql_function_body(detailed_func, "test_catalog", "test_schema")
+    sql_body = generate_sql_function_body(detailed_func, "test_catalog", "test_schema", True)
     
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.detailed_func(a INTEGER COMMENT 'The first number', b INTEGER COMMENT 'The second number')
@@ -108,7 +108,7 @@ def test_function_with_google_docstring():
     sql_body = generate_sql_function_body(my_function, "test_catalog", "test_schema")
 
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.my_function(a INTEGER COMMENT 'The integer to add to.', b STRING COMMENT 'The string to get the length of.')
+CREATE FUNCTION test_catalog.test_schema.my_function(a INTEGER COMMENT 'The integer to add to.', b STRING COMMENT 'The string to get the length of.')
 RETURNS DOUBLE
 LANGUAGE PYTHON
 COMMENT 'This function adds the length of a string to an integer.'
@@ -137,7 +137,7 @@ def test_function_with_multiline_argument_description():
         """
         return f"{a}-{b}"
 
-    sql_body = generate_sql_function_body(my_multiline_arg_function, "test_catalog", "test_schema")
+    sql_body = generate_sql_function_body(my_multiline_arg_function, "test_catalog", "test_schema", True)
     
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.my_multiline_arg_function(a INTEGER COMMENT 'The first argument, which is an integer. The integer is guaranteed to be positive.', b STRING COMMENT 'The second argument, which is a string. The string should be more than 100 characters long.')
@@ -172,7 +172,7 @@ def test_function_with_extra_docstring_params_ignored():
     )
     
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_extra_param_in_docstring(a INTEGER COMMENT 'The first argument')
+CREATE FUNCTION test_catalog.test_schema.func_with_extra_param_in_docstring(a INTEGER COMMENT 'The first argument')
 RETURNS STRING
 LANGUAGE PYTHON
 COMMENT 'A function with extra parameter in docstring.'
@@ -207,7 +207,7 @@ def test_function_with_nested():
     sql_body = generate_sql_function_body(outer_func, "test_catalog", "test_schema")
     
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.outer_func(x INTEGER COMMENT 'The x parameter', y INTEGER COMMENT 'The y parameter')
+CREATE FUNCTION test_catalog.test_schema.outer_func(x INTEGER COMMENT 'The x parameter', y INTEGER COMMENT 'The y parameter')
 RETURNS STRING
 LANGUAGE PYTHON
 COMMENT 'A function that demonstrates nested functions.'
@@ -241,7 +241,7 @@ def test_function_with_class():
         obj = Example(a)
         return str(obj.double())
 
-    sql_body = generate_sql_function_body(func_with_class, "test_catalog", "test_schema")
+    sql_body = generate_sql_function_body(func_with_class, "test_catalog", "test_schema", True)
     
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_class(a INTEGER COMMENT 'The parameter a')
@@ -276,7 +276,7 @@ def test_function_with_lambda():
         square = lambda a: a * a
         return str(square(x))
 
-    sql_body = generate_sql_function_body(lambda_func, "test_catalog", "test_schema")
+    sql_body = generate_sql_function_body(lambda_func, "test_catalog", "test_schema", True)
     
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.lambda_func(x INTEGER COMMENT 'The input value')
@@ -311,7 +311,7 @@ def test_function_with_heavily_nested_structure():
     )
 
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_heavily_nested(a ARRAY<MAP<STRING, ARRAY<MAP<STRING, INTEGER>>>> COMMENT 'A list of dictionaries where the key is a string and the value is a list of dictionaries with string keys and integer values.')
+CREATE FUNCTION test_catalog.test_schema.func_with_heavily_nested(a ARRAY<MAP<STRING, ARRAY<MAP<STRING, INTEGER>>>> COMMENT 'A list of dictionaries where the key is a string and the value is a list of dictionaries with string keys and integer values.')
 RETURNS STRING
 LANGUAGE PYTHON
 COMMENT 'A function that accepts a heavily nested structure of lists and dictionaries.'
@@ -341,7 +341,7 @@ def test_function_with_decorator():
         """
         return a + b
 
-    sql_body = generate_sql_function_body(decorated_func, "test_catalog", "test_schema")
+    sql_body = generate_sql_function_body(decorated_func, "test_catalog", "test_schema", True)
     
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.decorated_func(a INTEGER COMMENT 'First integer', b INTEGER COMMENT 'Second integer')
@@ -378,7 +378,7 @@ def test_function_with_try_except():
     sql_body = generate_sql_function_body(try_except_func, "test_catalog", "test_schema")
     
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.try_except_func(a INTEGER COMMENT 'First number', b INTEGER COMMENT 'Second number')
+CREATE FUNCTION test_catalog.test_schema.try_except_func(a INTEGER COMMENT 'First number', b INTEGER COMMENT 'Second number')
 RETURNS INTEGER
 LANGUAGE PYTHON
 COMMENT 'A function with try-except block.'
@@ -399,7 +399,7 @@ def test_function_with_multiple_return_paths():
         else:
             return "Negative"
 
-    sql_body = generate_sql_function_body(multiple_return_func, "test_catalog", "test_schema")
+    sql_body = generate_sql_function_body(multiple_return_func, "test_catalog", "test_schema", True)
     
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.multiple_return_func(a INTEGER COMMENT 'Parameter a')
@@ -476,7 +476,7 @@ def test_function_with_list_input():
         """
         return str(a)
 
-    sql_body = generate_sql_function_body(func_with_list, "test_catalog", "test_schema")
+    sql_body = generate_sql_function_body(func_with_list, "test_catalog", "test_schema", True)
     
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_list(a ARRAY<INTEGER> COMMENT 'A list of integers')
@@ -505,7 +505,7 @@ def test_function_with_map_input():
     sql_body = generate_sql_function_body(func_with_map, "test_catalog", "test_schema")
     
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_map(a MAP<STRING, INTEGER> COMMENT 'A map with string keys and integer values')
+CREATE FUNCTION test_catalog.test_schema.func_with_map(a MAP<STRING, INTEGER> COMMENT 'A map with string keys and integer values')
 RETURNS STRING
 LANGUAGE PYTHON
 COMMENT 'A function that accepts a map with string keys and integer values.'
@@ -528,7 +528,7 @@ def test_function_with_dict_list_input():
         """
         return str(a)
 
-    sql_body = generate_sql_function_body(func_with_dict_list, "test_catalog", "test_schema")
+    sql_body = generate_sql_function_body(func_with_dict_list, "test_catalog", "test_schema", True)
 
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_dict_list(a MAP<STRING, ARRAY<STRING>> COMMENT 'A dictionary with string keys and list of string values')
@@ -557,7 +557,7 @@ def test_function_with_list_of_dict_input():
     sql_body = generate_sql_function_body(func_with_list_of_map, "test_catalog", "test_schema")
 
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_list_of_map(a ARRAY<MAP<STRING, INTEGER>> COMMENT 'A list of maps with string keys and integer values')
+CREATE FUNCTION test_catalog.test_schema.func_with_list_of_map(a ARRAY<MAP<STRING, INTEGER>> COMMENT 'A list of maps with string keys and integer values')
 RETURNS STRING
 LANGUAGE PYTHON
 COMMENT 'A function that accepts a list of maps with string keys and integer values.'
@@ -581,7 +581,7 @@ def test_function_with_list_return():
         """
         return [1, 2, 3]
 
-    sql_body = generate_sql_function_body(func_with_list_return, "test_catalog", "test_schema")
+    sql_body = generate_sql_function_body(func_with_list_return, "test_catalog", "test_schema", True)
     
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_list_return()
@@ -607,7 +607,7 @@ def test_function_with_map_return():
     sql_body = generate_sql_function_body(func_with_map_return, "test_catalog", "test_schema")
     
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_map_return()
+CREATE FUNCTION test_catalog.test_schema.func_with_map_return()
 RETURNS MAP<STRING, INTEGER>
 LANGUAGE PYTHON
 COMMENT 'A function that returns a map with string keys and integer values.'
@@ -627,7 +627,7 @@ def test_function_with_complex_return_type():
         """
         return {"numbers": [1, 2, 3]}
 
-    sql_body = generate_sql_function_body(complex_return_func, "test_catalog", "test_schema")
+    sql_body = generate_sql_function_body(complex_return_func, "test_catalog", "test_schema", True)
     
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.complex_return_func()
@@ -882,7 +882,7 @@ def test_function_with_optional_default_values():
     sql_body = generate_sql_function_body(func_with_optional, "test_catalog", "test_schema")
 
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_optional(a INTEGER COMMENT 'Required integer.', b INTEGER DEFAULT 10 COMMENT 'Optional integer with default 10.', c STRING DEFAULT 'default' COMMENT 'Optional string with default "default".')
+CREATE FUNCTION test_catalog.test_schema.func_with_optional(a INTEGER COMMENT 'Required integer.', b INTEGER DEFAULT 10 COMMENT 'Optional integer with default 10.', c STRING DEFAULT 'default' COMMENT 'Optional string with default "default".')
 RETURNS STRING
 LANGUAGE PYTHON
 COMMENT 'A function that demonstrates optional parameters with default values.'
@@ -907,7 +907,7 @@ def test_function_with_mixed_required_and_default_values():
         """
         return a + b + c
 
-    sql_body = generate_sql_function_body(func_with_mixed, "test_catalog", "test_schema")
+    sql_body = generate_sql_function_body(func_with_mixed, "test_catalog", "test_schema", True)
     
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_mixed(a INTEGER COMMENT 'Required parameter.', b INTEGER DEFAULT 5 COMMENT 'Optional parameter with default value 5.', c INTEGER DEFAULT 20 COMMENT 'Optional parameter with default value 20.')
@@ -936,7 +936,7 @@ def test_function_with_default_string_value():
     sql_body = generate_sql_function_body(func_with_default_str, "test_catalog", "test_schema")
     
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_default_str(a STRING DEFAULT 'hello' COMMENT 'Optional string parameter with default value "hello".')
+CREATE FUNCTION test_catalog.test_schema.func_with_default_str(a STRING DEFAULT 'hello' COMMENT 'Optional string parameter with default value "hello".')
 RETURNS STRING
 LANGUAGE PYTHON
 COMMENT 'A function with an optional string parameter.'
@@ -958,7 +958,7 @@ def test_function_with_default_string_value_using_single_quote():
         """
         return a
 
-    sql_body = generate_sql_function_body(func_with_default_str, "test_catalog", "test_schema")
+    sql_body = generate_sql_function_body(func_with_default_str, "test_catalog", "test_schema", True)
 
     expected_sql = """
 CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_default_str(a STRING DEFAULT 'hello' COMMENT 'Optional string parameter with default value "hello".')
@@ -988,7 +988,7 @@ def test_function_with_default_numeric_and_string():
     sql_body = generate_sql_function_body(func_with_numeric_and_string, "test_catalog", "test_schema")
     
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_numeric_and_string(a INTEGER DEFAULT 5 COMMENT 'Optional integer with default value 5.', b STRING DEFAULT 'foo' COMMENT 'Optional string with default value "foo".')
+CREATE FUNCTION test_catalog.test_schema.func_with_numeric_and_string(a INTEGER DEFAULT 5 COMMENT 'Optional integer with default value 5.', b STRING DEFAULT 'foo' COMMENT 'Optional string with default value "foo".')
 RETURNS STRING
 LANGUAGE PYTHON
 COMMENT 'A function with both numeric and string default parameters.'
@@ -1015,7 +1015,7 @@ def test_function_with_optional_parameter():
     sql_body = generate_sql_function_body(func_with_optional_param,"test_catalog", "test_schema")
 
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_optional_param(a INTEGER DEFAULT NULL COMMENT 'Optional integer parameter, default None.', b STRING DEFAULT 'default' COMMENT 'Optional string parameter, default "default".')
+CREATE FUNCTION test_catalog.test_schema.func_with_optional_param(a INTEGER DEFAULT NULL COMMENT 'Optional integer parameter, default None.', b STRING DEFAULT 'default' COMMENT 'Optional string parameter, default "default".')
 RETURNS STRING
 LANGUAGE PYTHON
 COMMENT 'A function with an optional integer parameter and a string parameter.'
@@ -1024,6 +1024,56 @@ AS $$
 $$;
     """
     assert sql_body.strip() == expected_sql.strip()
+
+# ---------------------------
+# Tests for Forbidden Default Types
+# ---------------------------
+
+def test_parameter_with_default_list():
+    def func_with_default_list(a: List[int] = [1, 2, 3]) -> int:  # noqa: B006
+        """
+        Function with a default list parameter.
+        """
+        return sum(a)
+
+    with pytest.raises(ValueError, match="Parameter 'a' of type '.*' cannot have a default value."):
+        generate_sql_function_body(func_with_default_list, 'test_catalog', 'test_schema')
+
+def test_parameter_with_default_dict():
+    def func_with_default_dict(a: Dict[str, int] = {'one': 1}) -> int:  # noqa: B006
+        """
+        Function with a default dict parameter.
+        """
+        return a['one']
+
+    with pytest.raises(ValueError, match="Parameter 'a' of type '.*' cannot have a default value."):
+        generate_sql_function_body(func_with_default_dict, 'test_catalog', 'test_schema')
+
+def test_parameter_with_default_tuple():
+    def func_with_default_tuple(a: Tuple[int] = (1, 2)) -> int:
+        """
+        Function with a default tuple parameter.
+        """
+        return sum(a)
+
+    with pytest.raises(ValueError, match="Parameter 'a' of type '.*' cannot have a default value."):
+        generate_sql_function_body(func_with_default_tuple, 'test_catalog', 'test_schema')
+
+
+# ---------------------------
+# Tests for Mismatched Default Types
+# ---------------------------
+
+def test_parameter_with_disallowed_scalar_default():
+    def func_with_wrong_default(a: int = "10") -> int:
+        """
+        Function with a wrong type default parameter.
+        """
+        return a * 2
+
+    with pytest.raises(ValueError, match="Default value for parameter 'a' does not match the type hint"):
+        generate_sql_function_body(func_with_wrong_default, 'test_catalog', 'test_schema')
+
 
 # ---------------------------
 # Tests for Forbidden Parameters
@@ -1105,7 +1155,7 @@ def test_function_with_2_space_indentation():
         return str(nested_func(a))
 
     # Generating SQL from the function
-    sql_body = generate_sql_function_body(two_space_indented_func, "test_catalog", "test_schema")
+    sql_body = generate_sql_function_body(two_space_indented_func, "test_catalog", "test_schema", True)
     
     # Expected SQL with 2-space indentation for function body and nested function
     expected_sql = """
@@ -1143,7 +1193,7 @@ def test_function_with_imports():
     sql_body = generate_sql_function_body(func_with_import, "test_catalog", "test_schema")
     
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_import(a INTEGER COMMENT 'The input parameter')
+CREATE FUNCTION test_catalog.test_schema.func_with_import(a INTEGER COMMENT 'The input parameter')
 RETURNS STRING
 LANGUAGE PYTHON
 COMMENT 'A function that imports a module and returns a result.'

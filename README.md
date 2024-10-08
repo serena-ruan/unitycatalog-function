@@ -71,18 +71,20 @@ The `create_python_function` API allows you to directly convert a Python functio
 - **Mandatory**: The Python function must use argument and return type annotations. These annotations are used to generate the SQL signature of the UC function.
 - **Supported Types**: The following Python types are supported and mapped to their corresponding Unity Catalog SQL types:
 
-    | Python Type         | Unity Catalog Type |
-    |---------------------|--------------------|
-    | `int`               | `INTEGER`          |
-    | `float`             | `DOUBLE`           |
-    | `str`               | `STRING`           |
-    | `bool`              | `BOOLEAN`          |
-    | `Decimal`           | `DECIMAL`          |
-    | `datetime.date`     | `DATE`             |
-    | `datetime.datetime` | `TIMESTAMP`        |
-    | `list`              | `ARRAY`            |
-    | `tuple`             | `ARRAY`            |
-    | `dict`              | `MAP`              |
+    | Python Type          | Unity Catalog Type       |
+    |----------------------|--------------------------|
+    | `int`                | `INTEGER`                |
+    | `float`              | `DOUBLE`                 |
+    | `str`                | `STRING`                 |
+    | `bool`               | `BOOLEAN`                |
+    | `Decimal`            | `DECIMAL`                |
+    | `datetime.date`      | `DATE`                   |
+    | `datetime.timedelta` | `INTERVAL DAY TO SECOND` |
+    | `datetime.datetime`  | `TIMESTAMP`              |
+    | `list`               | `ARRAY`                  |
+    | `tuple`              | `ARRAY`                  |
+    | `dict`               | `MAP`                    |
+    | `bytes`              | `BINARY`                 |
 
 - **Collection Types**: If you use collection types like `list`, `tuple`, or `dict`, you **must specify the inner types** explicitly. Unity Catalog does not support ambiguous types like `List` or `Dict`. For example:
 
@@ -257,6 +259,8 @@ def invalid_func(a: Optional[int], b: str = "default") -> str:
 
 Why this is invalid: In this case, 'a' is declared as `Optional[int]` but does not have a default value assigned. The SQL function conversion will fail because `Optional` implies that the parameter can be omitted, but without a default value, there is no fallback for SQL to use. To fix this, you must assign a default value (e.g., `a: Optional[int] = None`).
 
+**Note**: Collection types (`tuple`, `list`, `dict`) do not support defining default values. Only scalar defaults are supported.
+
 ---
 
 **Handling External Dependencies**:
@@ -284,12 +288,25 @@ def example_function(x: int, y: str) -> str:
     """
     return f"{x + len(y)} characters"
 
-# Define the function's metadata and register it with Unity Catalog.
-function_comment = "Combines an integer and the length of a string."
 function_info = client.create_python_function(
     func=example_function,
     catalog="my_catalog",
     schema="my_schema"
+)
+```
+
+- **Overriding an existing function**:
+
+The `create_python_function` API has the `replace` argument (default value `False`) that will replace a function within Unity Catalog if set to `True`.
+Ensure that you are targeting the correct catalog, schema, and function name prior to setting this argument to ensure that you are not inadvertantly
+overwriting the wrong function within UC.
+
+```python
+function_info = client.create_python_function(
+  func=example_function,
+  catalog="my_catalog",
+  schema="my_schema",
+  replace=True
 )
 ```
 
@@ -319,9 +336,6 @@ def process_orders(orders: Dict[str, List[int]]) -> str:
         str: A summary of the orders.
     """
     return ", ".join(f"{k}: {sum(v)}" for k, v in orders.items())
-
-# Provide a description for the function
-function_description = "Processes a dictionary of customer orders and returns a summary string."
 
 # Create the function in Unity Catalog
 function_info = client.create_python_function(
