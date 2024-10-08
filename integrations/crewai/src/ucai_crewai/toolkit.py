@@ -143,9 +143,11 @@ class UCFunctionToolkit(BaseModel):
  
             return result.to_json()
 
-        class _BaseModelWrapper(BaseModel):
-            def __init__(self):
-                self = generate_function_input_params_schema(function_info).pydantic_model
+        generated_model = generate_function_input_params_schema(function_info).pydantic_model
+        class _BaseModelWrapper(generated_model):
+            #NB: Pydantic BaseModel.schema(), which is used by CrewAI, requires a subclass 
+            # of BaseClass.
+            ...
 
         return UnityCatalogTool(
             # UnityCatalogTool params

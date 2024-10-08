@@ -27,8 +27,7 @@ from ucai.test_utils.client_utils import (
     set_default_client,
 )
 from ucai.test_utils.function_utils import (
-    #TODO
-    # CATALOG,
+    CATALOG,
     create_function_and_cleanup,
 )
 
@@ -36,8 +35,6 @@ from ucai_crewai.toolkit import UCFunctionToolkit, _CREWAI_KWARGS_FROM_USER
 
 
 SCHEMA = os.environ.get("SCHEMA", "ucai_crewai_test")
-# TODO
-CATALOG = "main"
 
 
 @requires_databricks
@@ -78,8 +75,10 @@ def test_toolkit_e2e_manually_passing_client(use_serverless, monkeypatch):
         assert len(tools) == 1
         tool = tools[0]
         assert tool.name == func_obj.tool_name
+        # Validate CrewAI description format 
         assert func_obj.full_function_name.replace(".", "__") in tool.description 
         assert func_obj.comment in tool.description 
+        assert ("code: 'Python code to execute. Remember to print the final result to stdout.'" in tool.description)
         assert tool.client_config == client.to_dict()
         input_args = {"code": "print(1)"}
         result = json.loads(tool.fn(**input_args))["value"]
