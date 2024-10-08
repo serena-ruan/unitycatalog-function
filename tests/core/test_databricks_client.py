@@ -5,7 +5,6 @@ import re
 import time
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, NamedTuple, Union
-from unittest import mock
 
 import pytest
 from databricks.sdk.service.catalog import (
