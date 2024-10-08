@@ -12,11 +12,11 @@ from typing_extensions import override
 
 from ucai.core.client import BaseFunctionClient, FunctionExecutionResult
 from ucai.core.envs.databricks_env_vars import (
-    EXECUTE_FUNCTION_BYTE_LIMIT,
-    EXECUTE_FUNCTION_ROW_LIMIT,
-    EXECUTE_FUNCTION_WAIT_TIMEOUT,
-    UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT,
-    UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT,
+    UCAI_DATABRICKS_SERVERLESS_EXECUTION_RESULT_ROW_LIMIT,
+    UCAI_DATABRICKS_WAREHOUSE_EXECUTE_FUNCTION_BYTE_LIMIT,
+    UCAI_DATABRICKS_WAREHOUSE_EXECUTE_FUNCTION_ROW_LIMIT,
+    UCAI_DATABRICKS_WAREHOUSE_EXECUTE_FUNCTION_WAIT_TIMEOUT,
+    UCAI_DATABRICKS_WAREHOUSE_RETRY_TIMEOUT,
 )
 from ucai.core.paged_list import PagedList
 from ucai.core.utils.callable_utils import generate_sql_function_body
@@ -506,9 +506,9 @@ class DatabricksFunctionClient(BaseFunctionClient):
             statement=parametrized_statement.statement,
             warehouse_id=self.warehouse_id,
             parameters=parametrized_statement.parameters,
-            wait_timeout=EXECUTE_FUNCTION_WAIT_TIMEOUT.get(),
-            row_limit=int(EXECUTE_FUNCTION_ROW_LIMIT.get()),
-            byte_limit=int(EXECUTE_FUNCTION_BYTE_LIMIT.get()),
+            wait_timeout=UCAI_DATABRICKS_WAREHOUSE_EXECUTE_FUNCTION_WAIT_TIMEOUT.get(),
+            row_limit=int(UCAI_DATABRICKS_WAREHOUSE_EXECUTE_FUNCTION_ROW_LIMIT.get()),
+            byte_limit=int(UCAI_DATABRICKS_WAREHOUSE_EXECUTE_FUNCTION_BYTE_LIMIT.get()),
         )
         # TODO: the first time the warehouse is invoked, it might take longer than
         # expected, so it's still pending even after 6 times of retry;
@@ -519,7 +519,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
             _logger.info("Retrying to get statement execution status...")
             wait_time = 0
             retry_cnt = 0
-            client_execution_timeout = int(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT.get())
+            client_execution_timeout = int(UCAI_DATABRICKS_WAREHOUSE_RETRY_TIMEOUT.get())
             while wait_time < client_execution_timeout:
                 wait = min(2**retry_cnt, client_execution_timeout - wait_time)
                 time.sleep(wait)
@@ -533,8 +533,8 @@ class DatabricksFunctionClient(BaseFunctionClient):
                 return FunctionExecutionResult(
                     error=f"Statement execution is still {response.status.state.value.lower()} after {wait_time} "
                     "seconds. Please increase the wait_timeout argument for executing "
-                    f"the function or increase {UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT.name} environment "
-                    f"variable for increasing retrying time, default value is {UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT.default_value} seconds."
+                    f"the function or increase {UCAI_DATABRICKS_WAREHOUSE_RETRY_TIMEOUT.name} environment "
+                    f"variable for increasing retrying time, default value is {UCAI_DATABRICKS_WAREHOUSE_RETRY_TIMEOUT.default_value} seconds."
                 )
         if response.status is None:
             return FunctionExecutionResult(error=f"Statement execution failed: {response}")
@@ -597,7 +597,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
             if is_scalar(function_info):
                 return FunctionExecutionResult(format="SCALAR", value=str(result.collect()[0][0]))
             else:
-                row_limit = int(UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT.get())
+                row_limit = int(UCAI_DATABRICKS_SERVERLESS_EXECUTION_RESULT_ROW_LIMIT.get())
                 truncated = result.count() > row_limit
                 pdf = result.limit(row_limit).toPandas()
                 csv_buffer = StringIO()

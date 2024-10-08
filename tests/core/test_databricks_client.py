@@ -24,9 +24,9 @@ from ucai.core.databricks import (
     extract_function_name,
 )
 from ucai.core.envs.databricks_env_vars import (
-    EXECUTE_FUNCTION_WAIT_TIMEOUT,
-    UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT,
-    UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT,
+    UCAI_DATABRICKS_SERVERLESS_EXECUTION_RESULT_ROW_LIMIT,
+    UCAI_DATABRICKS_WAREHOUSE_EXECUTE_FUNCTION_WAIT_TIMEOUT,
+    UCAI_DATABRICKS_WAREHOUSE_RETRY_TIMEOUT,
 )
 from ucai.test_utils.client_utils import (
     client,  # noqa: F401
@@ -441,7 +441,7 @@ def test_execute_function_using_serverless_row_limit(
     serverless_client: DatabricksFunctionClient,
     monkeypatch,
 ):
-    monkeypatch.setenv(UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT.name, "1")
+    monkeypatch.setenv(UCAI_DATABRICKS_SERVERLESS_EXECUTION_RESULT_ROW_LIMIT.name, "1")
     with generate_func_name_and_cleanup(serverless_client, schema=SCHEMA) as func_name:
         function_sample = function_with_table_output(func_name)
         serverless_client.create_function(sql_function_body=function_sample.sql_body)
@@ -452,7 +452,7 @@ def test_execute_function_using_serverless_row_limit(
 
 @requires_databricks
 def test_execute_function_with_timeout(client: DatabricksFunctionClient, monkeypatch):
-    monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT.name, "5")
+    monkeypatch.setenv(UCAI_DATABRICKS_WAREHOUSE_RETRY_TIMEOUT.name, "5")
     with generate_func_name_and_cleanup(client, schema=SCHEMA) as func_name:
         sql_body = f"""CREATE FUNCTION {func_name}()
 RETURNS STRING
@@ -468,7 +468,7 @@ $$
         result = client.execute_function(func_name)
         assert result.error.startswith("Statement execution is still running after 5 seconds")
 
-        monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT.name, "100")
+        monkeypatch.setenv(UCAI_DATABRICKS_WAREHOUSE_RETRY_TIMEOUT.name, "100")
         result = client.execute_function(func_name)
         assert result.value == "10"
 
@@ -842,7 +842,7 @@ def good_function_info():
 
 @requires_databricks
 def test_extra_params_when_executing_function_e2e(client: DatabricksFunctionClient, monkeypatch):
-    monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT.name, "5")
+    monkeypatch.setenv(UCAI_DATABRICKS_WAREHOUSE_RETRY_TIMEOUT.name, "5")
     with generate_func_name_and_cleanup(client, schema=SCHEMA) as func_name:
         sql_body = f"""CREATE FUNCTION {func_name}()
 RETURNS STRING
@@ -860,7 +860,7 @@ $$
         client.execute_function(func_name)
         time_total1 = time.time() - time1
 
-        monkeypatch.setenv(EXECUTE_FUNCTION_WAIT_TIMEOUT.name, "10s")
+        monkeypatch.setenv(UCAI_DATABRICKS_WAREHOUSE_EXECUTE_FUNCTION_WAIT_TIMEOUT.name, "10s")
         time2 = time.time()
         client.execute_function(func_name)
         time_total2 = time.time() - time2
