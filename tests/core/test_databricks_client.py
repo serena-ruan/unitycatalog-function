@@ -5,7 +5,6 @@ import re
 import time
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, NamedTuple, Union
-from unittest import mock
 
 import pytest
 from databricks.sdk.service.catalog import (
@@ -21,12 +20,13 @@ from databricks.sdk.service.catalog import (
 )
 
 from ucai.core.databricks import (
-    DEFAULT_EXECUTE_FUNCTION_ARGS,
-    EXECUTE_FUNCTION_ARG_NAME,
-    UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT,
-    UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT,
     DatabricksFunctionClient,
     extract_function_name,
+)
+from ucai.core.envs.databricks_env_vars import (
+    UCAI_DATABRICKS_SERVERLESS_EXECUTION_RESULT_ROW_LIMIT,
+    UCAI_DATABRICKS_WAREHOUSE_EXECUTE_FUNCTION_WAIT_TIMEOUT,
+    UCAI_DATABRICKS_WAREHOUSE_RETRY_TIMEOUT,
 )
 from ucai.test_utils.client_utils import (
     client,  # noqa: F401
@@ -441,7 +441,7 @@ def test_execute_function_using_serverless_row_limit(
     serverless_client: DatabricksFunctionClient,
     monkeypatch,
 ):
-    monkeypatch.setenv(UC_AI_CLIENT_EXECUTION_RESULT_ROW_LIMIT, "1")
+    monkeypatch.setenv(UCAI_DATABRICKS_SERVERLESS_EXECUTION_RESULT_ROW_LIMIT.name, "1")
     with generate_func_name_and_cleanup(serverless_client, schema=SCHEMA) as func_name:
         function_sample = function_with_table_output(func_name)
         serverless_client.create_function(sql_function_body=function_sample.sql_body)
@@ -452,7 +452,7 @@ def test_execute_function_using_serverless_row_limit(
 
 @requires_databricks
 def test_execute_function_with_timeout(client: DatabricksFunctionClient, monkeypatch):
-    monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "5")
+    monkeypatch.setenv(UCAI_DATABRICKS_WAREHOUSE_RETRY_TIMEOUT.name, "5")
     with generate_func_name_and_cleanup(client, schema=SCHEMA) as func_name:
         sql_body = f"""CREATE FUNCTION {func_name}()
 RETURNS STRING
@@ -468,7 +468,7 @@ $$
         result = client.execute_function(func_name)
         assert result.error.startswith("Statement execution is still running after 5 seconds")
 
-        monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "100")
+        monkeypatch.setenv(UCAI_DATABRICKS_WAREHOUSE_RETRY_TIMEOUT.name, "100")
         result = client.execute_function(func_name)
         assert result.value == "10"
 
@@ -840,115 +840,9 @@ def good_function_info():
     )
 
 
-@pytest.fixture
-def bad_function_info():
-    func_name = random_func_name(schema=SCHEMA).split(".")[-1]
-    return FunctionInfo(
-        catalog_name=CATALOG,
-        schema_name=SCHEMA,
-        name=func_name,
-        input_params=FunctionParameterInfos(
-            parameters=[
-                FunctionParameterInfo(
-                    EXECUTE_FUNCTION_ARG_NAME,
-                    type_name=ColumnTypeName.STRING,
-                    type_text="string",
-                    position=0,
-                ),
-            ]
-        ),
-        data_type=ColumnTypeName.STRING,
-        external_language="Python",
-        comment="test function",
-        routine_body=CreateFunctionRoutineBody.EXTERNAL,
-        routine_definition=f"return {EXECUTE_FUNCTION_ARG_NAME}",
-        full_data_type="STRING",
-        return_params=FunctionParameterInfos(),
-        routine_dependencies=DependencyList(),
-        parameter_style=CreateFunctionParameterStyle.S,
-        is_deterministic=False,
-        sql_data_access=CreateFunctionSqlDataAccess.NO_SQL,
-        is_null_call=False,
-        security_type=CreateFunctionSecurityType.DEFINER,
-        specific_name=func_name,
-    )
-
-
-@pytest.mark.parametrize(
-    ("parameters", "execute_params"),
-    [
-        ({"a": 1, "b": "b"}, DEFAULT_EXECUTE_FUNCTION_ARGS),
-        (
-            {"a": 1, EXECUTE_FUNCTION_ARG_NAME: {"wait_timeout": "10s"}},
-            {**DEFAULT_EXECUTE_FUNCTION_ARGS, "wait_timeout": "10s"},
-        ),
-        (
-            {EXECUTE_FUNCTION_ARG_NAME: {"row_limit": "1000"}},
-            {**DEFAULT_EXECUTE_FUNCTION_ARGS, "row_limit": "1000"},
-        ),
-    ],
-)
-def test_extra_params_when_executing_function(
-    client: DatabricksFunctionClient, parameters, execute_params, good_function_info
-):
-    def mock_execute_statement(
-        statement,
-        warehouse_id,
-        *,
-        byte_limit=None,
-        catalog=None,
-        disposition=None,
-        format=None,
-        on_wait_timeout=None,
-        parameters=None,
-        row_limit=None,
-        schema=None,
-        wait_timeout=None,
-    ):
-        for key, value in execute_params.items():
-            assert locals()[key] == value
-        return mock.Mock()
-
-    client.client.statement_execution.execute_statement = mock_execute_statement
-    client._execute_uc_function(good_function_info, parameters)
-
-
-def test_extra_params_when_executing_function_errors(
-    client: DatabricksFunctionClient, good_function_info, bad_function_info
-):
-    def mock_execute_statement(
-        statement,
-        warehouse_id,
-        *,
-        byte_limit=None,
-        catalog=None,
-        disposition=None,
-        format=None,
-        on_wait_timeout=None,
-        parameters=None,
-        row_limit=None,
-        schema=None,
-        wait_timeout=None,
-    ):
-        return mock.Mock()
-
-    client.client.statement_execution.execute_statement = mock_execute_statement
-
-    with pytest.raises(
-        ValueError,
-        match=r"Parameter name conflicts with the reserved argument name for executing functions",
-    ):
-        client._execute_uc_function(bad_function_info, {EXECUTE_FUNCTION_ARG_NAME: "value"})
-
-    with pytest.raises(ValueError, match=r"Invalid parameters for executing functions"):
-        client._execute_uc_function(
-            good_function_info, {EXECUTE_FUNCTION_ARG_NAME: {"invalid_param": "a"}}
-        )
-
-
 @requires_databricks
 def test_extra_params_when_executing_function_e2e(client: DatabricksFunctionClient, monkeypatch):
-    monkeypatch.setenv(UNITYCATALOG_AI_CLIENT_EXECUTION_TIMEOUT, "5")
+    monkeypatch.setenv(UCAI_DATABRICKS_WAREHOUSE_RETRY_TIMEOUT.name, "5")
     with generate_func_name_and_cleanup(client, schema=SCHEMA) as func_name:
         sql_body = f"""CREATE FUNCTION {func_name}()
 RETURNS STRING
@@ -966,8 +860,9 @@ $$
         client.execute_function(func_name)
         time_total1 = time.time() - time1
 
+        monkeypatch.setenv(UCAI_DATABRICKS_WAREHOUSE_EXECUTE_FUNCTION_WAIT_TIMEOUT.name, "10s")
         time2 = time.time()
-        client.execute_function(func_name, {EXECUTE_FUNCTION_ARG_NAME: {"wait_timeout": "10s"}})
+        client.execute_function(func_name)
         time_total2 = time.time() - time2
         # 30s - 10s = 20s, the time difference should be around 20s
         assert abs(abs(time_total2 - time_total1) - 20) < 5

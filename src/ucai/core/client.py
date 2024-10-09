@@ -4,12 +4,9 @@ import threading
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, Literal, Optional
+from typing import Any, Callable, Dict, Literal, Optional
 
 from ucai.core.paged_list import PagedList
-
-if TYPE_CHECKING:
-    from databricks.sdk.service.catalog import FunctionInfo
 
 _logger = logging.getLogger(__name__)
 
@@ -43,13 +40,13 @@ class BaseFunctionClient(ABC):
         self._lock = threading.Lock()
 
     @abstractmethod
-    def create_function(self, *args: Any, **kwargs: Any) -> "FunctionInfo":
+    def create_function(self, *args: Any, **kwargs: Any) -> Any:
         """Create a function"""
 
     @abstractmethod
     def create_python_function(
         self, *, func: Callable[..., Any], catalog: str, schema: str, replace: bool = False
-    ) -> "FunctionInfo":
+    ) -> Any:
         """
         Create a Python function
 
