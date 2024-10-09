@@ -1,9 +1,10 @@
-import json
+# src/ucai_llamaindex/toolkit.py
+
 from typing import Any, Callable, Dict, List, Optional
 
 from llama_index.core.tools import FunctionTool
 from llama_index.core.tools.types import ToolMetadata
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model, model_validator
 from ucai.core.client import BaseFunctionClient
 from ucai.core.utils.client_utils import validate_or_set_default_client
 from ucai.core.utils.function_processing_utils import (
@@ -102,20 +103,6 @@ class UCFunctionToolkit(BaseModel):
     ) -> FunctionTool:
         """
         Converts a Unity Catalog function into a Llama tool.
-
-        Args:
-            client (Optional[BaseFunctionClient]): The client used to manage functions. Defaults to None.
-            function_name (Optional[str]): The name of the function in 'catalog.schema.function' format.
-                Either function_name or function_info should be provided.
-            function_info (Optional[Any]): The function information object. Either function_name or
-                function_info should be provided.
-            return_direct (Optional[bool]): Whether the tool should return the output directly. Defaults to False.
-
-        Returns:
-            FunctionTool: The constructed tool from the Unity Catalog function.
-
-        Raises:
-            ValueError: If neither or both of function_name and function_info are provided.
         """
         if function_name and function_info:
             raise ValueError("Only one of function_name or function_info should be provided.")
@@ -129,33 +116,39 @@ class UCFunctionToolkit(BaseModel):
             raise ValueError("Either function_name or function_info should be provided.")
 
         fn_schema = generate_function_input_params_schema(function_info)
-        # LlamaIndex requires the Pydantic model definition rather than an instance for validation
         pydantic_model = fn_schema.pydantic_model
+
+        # Enforce strict validation by setting 'extra' to 'forbid'
+        WrappedModel = create_model(
+            f"{pydantic_model.__name__}_Wrapper",
+            properties=(pydantic_model, Field(...)),
+            model_config=ConfigDict(extra="forbid"),
+        )
 
         def func(**kwargs: Any) -> str:
             """
             Executes the Unity Catalog function with the provided parameters.
             """
-            # Identify extra keys not defined in the Pydantic model
-            model_fields = set(pydantic_model.model_fields)
-            input_keys = set(kwargs.keys())
-            extra_keys = input_keys - model_fields
-            if extra_keys:
-                raise ValueError("Extra parameters provided that are not defined")
+            try:
+                # Validate input parameters using WrappedModel
+                validated_input = WrappedModel(**kwargs)
+            except ValidationError as e:
+                raise ValueError("Extra parameters provided that are not defined") from e
 
-            # Validate input using the Pydantic model
-            validated_input = pydantic_model(**kwargs)
-            args_json = json.loads(validated_input.model_dump_json())
+            # Extract all function parameters
+            function_params = validated_input.model_dump()
+
+            # Execute the function with the parameters
             result = client.execute_function(
                 function_name=function_name,
-                parameters=args_json,
+                parameters=function_params,
             )
             return result.to_json()
 
         metadata = ToolMetadata(
             name=get_tool_name(function_name),
             description=function_info.comment or "",
-            fn_schema=pydantic_model,
+            fn_schema=WrappedModel,
             return_direct=return_direct,
         )
 

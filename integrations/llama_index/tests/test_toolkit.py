@@ -155,7 +155,7 @@ def test_uc_function_to_llama_tool(client):
         # Validate passthrough of LlamaIndex argument
         assert tool.metadata.return_direct
 
-        result = json.loads(tool.fn(x="some_string"))["value"]
+        result = json.loads(tool.fn(properties={"x": "some_string"}))["value"]
         assert result == "some_string"
 
 
@@ -170,7 +170,7 @@ def test_toolkit_with_invalid_function_input(client):
         mock.patch.object(client, "get_function", return_value=mock_function_info),
     ):
         # Test with invalid input params that are not matching expected schema
-        invalid_inputs = {"unexpected_key": "value"}
+        invalid_inputs = {"properties": {"unexpected_key": "value"}}
         tool = UCFunctionToolkit.uc_function_to_llama_tool(
             function_name="catalog.schema.test", client=client, return_direct=True
         )
