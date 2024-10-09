@@ -9,8 +9,8 @@ from ucai.core.databricks import DatabricksFunctionClient
 
 USE_SERVERLESS = "USE_SERVERLESS"
 TEST_IN_DATABRICKS = os.environ.get("TEST_IN_DATABRICKS", "false").lower() == "true"
-WAREHOUSE_ID = os.environ.get("WAREHOUSE_ID", "d009c5ecc5eeb1d9")
-PROFILE = os.environ.get("DATABRICKS_CONFIG_PROFILE", "ai-test-runner")
+WAREHOUSE_ID = os.environ.get("WAREHOUSE_ID", "warehouse_id")
+PROFILE = os.environ.get("DATABRICKS_CONFIG_PROFILE")
 
 
 def use_serverless():
