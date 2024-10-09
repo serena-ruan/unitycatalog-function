@@ -24,7 +24,7 @@ from ucai.test_utils.function_utils import (
     create_function_and_cleanup,
 )
 
-from ucai_llamaindex.toolkit import UCFunctionToolkit
+from ucai_llamaindex.toolkit import UCFunctionToolkit, extract_properties
 
 SCHEMA = os.environ.get("SCHEMA", "ucai_llama_index_test")
 
@@ -176,3 +176,89 @@ def test_toolkit_with_invalid_function_input(client):
 
         with pytest.raises(ValueError, match="Extra parameters provided that are not defined"):
             tool.fn(**invalid_inputs)
+
+
+def test_extract_properties_success():
+    data = {
+        "properties": {"location": "abc", "temp": 1234},
+        "metadata": "something",
+        "name": "something else",
+    }
+
+    expected = {"metadata": "something", "name": "something else", "location": "abc", "temp": 1234}
+
+    assert extract_properties(data) == expected
+
+
+def test_extract_properties_no_properties():
+    data = {"metadata": "something", "name": "something else"}
+
+    expected = {"metadata": "something", "name": "something else"}
+
+    assert extract_properties(data) == expected
+
+
+def test_extract_properties_properties_not_dict():
+    data = {"properties": "not a dict", "metadata": "something", "name": "something else"}
+
+    with pytest.raises(TypeError, match="'properties' must be a dictionary."):
+        extract_properties(data)
+
+
+def test_extract_properties_empty_properties():
+    data = {"properties": {}, "metadata": "something", "name": "something else"}
+
+    expected = {"metadata": "something", "name": "something else"}
+
+    assert extract_properties(data) == expected
+
+
+def test_extract_properties_key_collision():
+    data = {
+        "properties": {"location": "abc", "metadata": "conflict"},
+        "metadata": "something",
+        "name": "something else",
+    }
+
+    with pytest.raises(
+        KeyError, match="Key collision detected for keys: metadata. Cannot merge 'properties'."
+    ):
+        extract_properties(data)
+
+
+def test_extract_properties_multiple_collisions():
+    data = {
+        "properties": {"location": "abc", "metadata": "conflict", "name": "conflict_name"},
+        "metadata": "something",
+        "name": "something else",
+    }
+
+    with pytest.raises(
+        KeyError,
+        match="Key collision detected for keys",
+    ):
+        extract_properties(data)
+
+
+def test_extract_properties_nested_properties():
+    data = {
+        "properties": {"location": "abc", "details": {"temp": 1234, "humidity": 80}},
+        "metadata": "something",
+        "name": "something else",
+    }
+
+    expected = {
+        "metadata": "something",
+        "name": "something else",
+        "location": "abc",
+        "details": {"temp": 1234, "humidity": 80},
+    }
+
+    assert extract_properties(data) == expected
+
+
+def test_extract_properties_non_dict_input():
+    data = ["not", "a", "dict"]
+
+    with pytest.raises(TypeError, match="Input must be a dictionary."):
+        extract_properties(data)

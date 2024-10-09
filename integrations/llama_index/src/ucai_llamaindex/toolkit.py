@@ -140,6 +140,7 @@ class UCFunctionToolkit(BaseModel):
             Returns:
                 str: The JSON result of the function execution.
             """
+            kwargs = extract_properties(kwargs)
             args_json = json.loads(json.dumps(kwargs, default=str))
             result = client.execute_function(
                 function_name=function_name,
@@ -150,7 +151,7 @@ class UCFunctionToolkit(BaseModel):
         metadata = ToolMetadata(
             name=get_tool_name(function_name),
             description=function_info.comment or "",
-            fn_schema=fn_schema,
+            fn_schema=fn_schema.pydantic_model,
             return_direct=return_direct,
         )
 
@@ -169,3 +170,48 @@ class UCFunctionToolkit(BaseModel):
             List[FunctionTool]: A list of tools available in the toolkit.
         """
         return list(self.tools_dict.values())
+
+
+def extract_properties(data: dict) -> dict:
+    """
+    Extracts the 'properties' dictionary from the input dictionary,
+    merges its key-value pairs into the top-level dictionary, and returns a new dictionary.
+
+    Args:
+        data (dict): The original dictionary possibly containing a 'properties' key.
+
+    Returns:
+        dict: A new dictionary with 'properties' merged into the top-level.
+
+    Raises:
+        TypeError: If 'properties' exists but is not a dictionary.
+        KeyError: If there are key collisions between 'properties' and the top-level keys.
+    """
+    if not isinstance(data, dict):
+        raise TypeError("Input must be a dictionary.")
+
+    if "properties" not in data:
+        return data.copy()
+
+    properties = data["properties"]
+
+    if not isinstance(properties, dict):
+        raise TypeError("'properties' must be a dictionary.")
+
+    top_level_keys = set(data.keys()) - {"properties"}
+
+    properties_keys = set(properties.keys())
+
+    overlapping_keys = top_level_keys & properties_keys
+
+    if overlapping_keys:
+        conflict_keys = ", ".join(overlapping_keys)
+        raise KeyError(
+            f"Key collision detected for keys: {conflict_keys}. Cannot merge 'properties'."
+        )
+
+    merged_data = {k: v for k, v in data.items() if k != "properties"}
+
+    merged_data.update(properties)
+
+    return merged_data
