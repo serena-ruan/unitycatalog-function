@@ -60,14 +60,19 @@ def test_tool_calling_with_anthropic(use_serverless, monkeypatch):
         assert len(tools) == 1
 
         messages = [
-            {"role": "user", "content": "Please execute the following code: print('Hello, World!')"},
+            {
+                "role": "user",
+                "content": "Please execute the following code: print('Hello, World!')",
+            },
         ]
 
         converted_func_name = get_tool_name(func_name)
 
-        with mock.patch('anthropic.resources.messages.Messages.create') as mock_create:
+        with mock.patch("anthropic.resources.messages.Messages.create") as mock_create:
             mock_create.return_value = mock_anthropic_tool_response(
-                function_name=converted_func_name, input_data={"code": "print('Hello, World!')"}, message_id="msg_01H6Y3Z0XYZ123456789"
+                function_name=converted_func_name,
+                input_data={"code": "print('Hello, World!')"},
+                message_id="msg_01H6Y3Z0XYZ123456789",
             )
 
             response = Anthropic().messages.create(
@@ -94,14 +99,13 @@ def test_tool_calling_with_anthropic(use_serverless, monkeypatch):
                 ],
             }
 
-            with mock.patch('anthropic.resources.messages.Messages.create') as mock_create_final:
+            with mock.patch("anthropic.resources.messages.Messages.create") as mock_create_final:
                 mock_create_final.return_value = Message(
                     id="msg_01H6Y3Z0XYZ123456780",
                     type="message",
                     content=[
                         TextBlock(
-                            text="The code has been executed. Output:\n\nHello, World!",
-                            type="text"
+                            text="The code has been executed. Output:\n\nHello, World!", type="text"
                         ),
                     ],
                     role="assistant",
@@ -125,8 +129,10 @@ def test_tool_calling_with_anthropic(use_serverless, monkeypatch):
                     max_tokens=200,
                 )
 
-                assert final_response.content[0].text == "The code has been executed. Output:\n\nHello, World!"
-
+                assert (
+                    final_response.content[0].text
+                    == "The code has been executed. Output:\n\nHello, World!"
+                )
 
 
 @requires_databricks
@@ -144,17 +150,20 @@ def test_tool_calling_with_multiple_tools_anthropic(use_serverless, monkeypatch)
         assert len(tools) == 1
 
         messages = [
-            {"role": "user", "content": "Please execute the following code: print('Hello from Paris!') and then print('Hello from New York!')"},
+            {
+                "role": "user",
+                "content": "Please execute the following code: print('Hello from Paris!') and then print('Hello from New York!')",
+            },
         ]
 
         converted_func_name = get_tool_name(func_name)
 
         code_paris = "print('Hello from Paris!')"
-        with mock.patch('anthropic.resources.messages.Messages.create') as mock_create_first:
+        with mock.patch("anthropic.resources.messages.Messages.create") as mock_create_first:
             mock_create_first.return_value = mock_anthropic_tool_response(
                 function_name=converted_func_name,
                 input_data={"code": code_paris},
-                message_id="msg_01H6Y3Z0XYZ123456789"
+                message_id="msg_01H6Y3Z0XYZ123456789",
             )
 
             response = Anthropic().messages.create(
@@ -182,11 +191,11 @@ def test_tool_calling_with_multiple_tools_anthropic(use_serverless, monkeypatch)
             }
 
             code_new_york = "print('Hello from New York!')"
-            with mock.patch('anthropic.resources.messages.Messages.create') as mock_create_second:
+            with mock.patch("anthropic.resources.messages.Messages.create") as mock_create_second:
                 mock_create_second.return_value = mock_anthropic_tool_response(
                     function_name=converted_func_name,
                     input_data={"code": code_new_york},
-                    message_id="msg_01H6Y3Z0XYZ123456780"
+                    message_id="msg_01H6Y3Z0XYZ123456780",
                 )
 
                 messages_second = [
@@ -223,14 +232,16 @@ def test_tool_calling_with_multiple_tools_anthropic(use_serverless, monkeypatch)
                     ],
                 }
 
-                with mock.patch('anthropic.resources.messages.Messages.create') as mock_create_final:
+                with mock.patch(
+                    "anthropic.resources.messages.Messages.create"
+                ) as mock_create_final:
                     mock_create_final.return_value = Message(
                         id="msg_01H6Y3Z0XYZ123456781",
                         type="message",
                         content=[
                             TextBlock(
                                 text="I've executed both code snippets. Output:\n\nHello, World!\nHello, World!",
-                                type="text"
+                                type="text",
                             ),
                         ],
                         role="assistant",
@@ -255,9 +266,10 @@ def test_tool_calling_with_multiple_tools_anthropic(use_serverless, monkeypatch)
                         max_tokens=200,
                     )
 
-                    assert final_response.content[0].text == "I've executed both code snippets. Output:\n\nHello, World!\nHello, World!"
-
-
+                    assert (
+                        final_response.content[0].text
+                        == "I've executed both code snippets. Output:\n\nHello, World!\nHello, World!"
+                    )
 
 
 @pytest.mark.parametrize("use_serverless", [True, False])
