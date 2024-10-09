@@ -1077,7 +1077,8 @@ def test_function_with_list_of_int_return(client: DatabricksFunctionClient):
         client, func=func_returning_list, schema=SCHEMA
     ) as func_obj:
         result = client.execute_function(func_obj.full_function_name, {"a": 3})
-        assert result.value == "[0, 1, 2]"
+        # result wrapped as string is due to sql statement execution response parsing
+        assert result.value == '["0","1","2"]'
 
 
 @requires_databricks
@@ -1098,7 +1099,8 @@ def test_function_with_dict_of_string_to_int_return(client: DatabricksFunctionCl
         client, func=func_returning_map, schema=SCHEMA
     ) as func_obj:
         result = client.execute_function(func_obj.full_function_name, {"a": 3})
-        assert result.value == "{'key_0': 0, 'key_1': 1, 'key_2': 2}"
+        # result wrapped as string is due to sql statement execution response parsing
+        assert result.value == '{"key_0":"0","key_1":"1","key_2":"2"}'
 
 
 def test_function_with_invalid_list_return_type(client: DatabricksFunctionClient):
@@ -1159,13 +1161,13 @@ def test_replace_existing_function(client: DatabricksFunctionClient):
         assert result.value == "42"
 
         # Modify the function definition
-        def simple_func_modified(x: int) -> str:
+        def simple_func(x: int) -> str:
             """Modified function that returns 'Modified: ' plus the string version of x."""
             return f"Modified: {x}"
 
         # Replace the existing function
         client.create_python_function(
-            func=simple_func_modified, catalog=CATALOG, schema=SCHEMA, replace=True
+            func=simple_func, catalog=CATALOG, schema=SCHEMA, replace=True
         )
 
         # Execute the function again to verify it has been replaced
