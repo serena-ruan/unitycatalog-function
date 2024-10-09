@@ -1,5 +1,3 @@
-# src/ucai_llamaindex/toolkit.py
-
 from typing import Any, Callable, Dict, List, Optional
 
 from llama_index.core.tools import FunctionTool
@@ -118,7 +116,7 @@ class UCFunctionToolkit(BaseModel):
         fn_schema = generate_function_input_params_schema(function_info)
         pydantic_model = fn_schema.pydantic_model
 
-        # Enforce strict validation by setting 'extra' to 'forbid'
+        # Enforce strict validation by setting 'extra' to 'forbid' for both outer and inner models
         WrappedModel = create_model(
             f"{pydantic_model.__name__}_Wrapper",
             properties=(pydantic_model, Field(...)),
@@ -135,8 +133,8 @@ class UCFunctionToolkit(BaseModel):
             except ValidationError as e:
                 raise ValueError("Extra parameters provided that are not defined") from e
 
-            # Extract all function parameters
-            function_params = validated_input.model_dump()
+            # Extract the 'properties' field containing the actual parameters
+            function_params = validated_input.properties.model_dump()
 
             # Execute the function with the parameters
             result = client.execute_function(

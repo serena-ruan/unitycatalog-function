@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from unittest import mock
 
 import pytest
@@ -116,21 +117,21 @@ def test_toolkit_function_argument_errors(client):
 def generate_function_info():
     parameters = [
         {
-            "name": "x",
+            "name": "location",
             "type_text": "string",
-            "type_json": '{"name":"x","type":"string","nullable":true,"metadata":{"EXISTS_DEFAULT":"\\"123\\"","default":"\\"123\\"","CURRENT_DEFAULT":"\\"123\\""}}',
+            "type_json": '{"name":"location","type":"string","nullable":true,"metadata":{"comment":"The location to fetch the weather for."}}',
             "type_name": ColumnTypeName.STRING,
             "type_precision": 0,
             "type_scale": 0,
-            "position": 17,
+            "position": 0,
             "parameter_type": "PARAM",
-            "parameter_default": '"123"',
+            "parameter_default": None,
         }
     ]
     return FunctionInfo(
-        catalog_name="catalog",
-        schema_name="schema",
-        name="test",
+        catalog_name=CATALOG,
+        schema_name=SCHEMA,
+        name="fetch_cold_weather",
         input_params=FunctionParameterInfos(
             parameters=[FunctionParameterInfo(**param) for param in parameters]
         ),
@@ -146,17 +147,19 @@ def test_uc_function_to_llama_tool(client):
         ),
         mock.patch(
             "ucai.core.databricks.DatabricksFunctionClient.execute_function",
-            return_value=FunctionExecutionResult(format="SCALAR", value="some_string"),
+            return_value=FunctionExecutionResult(format="SCALAR", value="1.9 C"),
         ),
     ):
         tool = UCFunctionToolkit.uc_function_to_llama_tool(
-            function_name=f"{CATALOG}.{SCHEMA}.test", client=client, return_direct=True
+            function_name=f"{CATALOG}.{SCHEMA}.fetch_cold_weather",
+            client=client,
+            return_direct=True,
         )
         # Validate passthrough of LlamaIndex argument
         assert tool.metadata.return_direct
 
-        result = json.loads(tool.fn(properties={"x": "some_string"}))["value"]
-        assert result == "some_string"
+        result = json.loads(tool.fn(properties={"location": "Bogota, Colombia"}))["value"]
+        assert result == "1.9 C"
 
 
 def test_toolkit_with_invalid_function_input(client):
@@ -169,11 +172,34 @@ def test_toolkit_with_invalid_function_input(client):
         ),
         mock.patch.object(client, "get_function", return_value=mock_function_info),
     ):
-        # Test with invalid input params that are not matching expected schema
-        invalid_inputs = {"properties": {"unexpected_key": "value"}}
+        invalid_inputs = {"invalid": {"unexpected_key": "value"}}
         tool = UCFunctionToolkit.uc_function_to_llama_tool(
-            function_name="catalog.schema.test", client=client, return_direct=True
+            function_name="catalog.schema.fetch_cold_weather", client=client, return_direct=True
         )
 
         with pytest.raises(ValueError, match="Extra parameters provided that are not defined"):
+            tool.fn(**invalid_inputs)
+
+
+def test_toolkit_with_invalid_function_input_args(client):
+    """Test toolkit with invalid input parameters for function conversion."""
+    mock_function_info = generate_function_info()
+
+    with (
+        mock.patch(
+            "ucai.core.utils.client_utils.validate_or_set_default_client", return_value=client
+        ),
+        mock.patch.object(client, "get_function", return_value=mock_function_info),
+    ):
+        invalid_inputs = {"properties": {"unexpected_key": "value"}}
+        tool = UCFunctionToolkit.uc_function_to_llama_tool(
+            function_name="catalog.schema.fetch_cold_weather", client=client, return_direct=True
+        )
+
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                "Invalid parameters provided: {'location': \"Parameter location should be of type STRING (corresponding python type <class 'str'>), but got <class 'NoneType'>\"}."
+            ),
+        ):
             tool.fn(**invalid_inputs)
