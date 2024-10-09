@@ -129,18 +129,23 @@ class UCFunctionToolkit(BaseModel):
             raise ValueError("Either function_name or function_info should be provided.")
 
         fn_schema = generate_function_input_params_schema(function_info)
+        # LlamaIndex requires the Pydantic model definition rather than an instance for validation
+        pydantic_model = fn_schema.pydantic_model
 
         def func(**kwargs: Any) -> str:
             """
             Executes the Unity Catalog function with the provided parameters.
-
-            Args:
-                **kwargs (Any): Keyword arguments representing function parameters.
-
-            Returns:
-                str: The JSON result of the function execution.
             """
-            args_json = json.loads(json.dumps(kwargs, default=str))
+            # Identify extra keys not defined in the Pydantic model
+            model_fields = set(pydantic_model.model_fields)
+            input_keys = set(kwargs.keys())
+            extra_keys = input_keys - model_fields
+            if extra_keys:
+                raise ValueError("Extra parameters provided that are not defined")
+
+            # Validate input using the Pydantic model
+            validated_input = pydantic_model(**kwargs)
+            args_json = json.loads(validated_input.model_dump_json())
             result = client.execute_function(
                 function_name=function_name,
                 parameters=args_json,
@@ -150,7 +155,7 @@ class UCFunctionToolkit(BaseModel):
         metadata = ToolMetadata(
             name=get_tool_name(function_name),
             description=function_info.comment or "",
-            fn_schema=fn_schema,
+            fn_schema=pydantic_model,
             return_direct=return_direct,
         )
 

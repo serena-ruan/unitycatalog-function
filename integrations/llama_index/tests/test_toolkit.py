@@ -4,6 +4,7 @@ from unittest import mock
 
 import pytest
 from databricks.sdk.service.catalog import (
+    ColumnTypeName,
     FunctionInfo,
     FunctionParameterInfo,
     FunctionParameterInfos,
@@ -118,7 +119,7 @@ def generate_function_info():
             "name": "x",
             "type_text": "string",
             "type_json": '{"name":"x","type":"string","nullable":true,"metadata":{"EXISTS_DEFAULT":"\\"123\\"","default":"\\"123\\"","CURRENT_DEFAULT":"\\"123\\""}}',
-            "type_name": "STRING",
+            "type_name": ColumnTypeName.STRING,
             "type_precision": 0,
             "type_scale": 0,
             "position": 17,
