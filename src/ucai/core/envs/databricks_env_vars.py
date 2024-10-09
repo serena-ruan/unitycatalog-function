@@ -1,9 +1,8 @@
 import os
-from typing import Optional
 
 
 class _EnvironmentVariable:
-    def __init__(self, name: str, default_value: str, description: Optional[str] = None):
+    def __init__(self, name: str, default_value: str, description: str):
         self.name = name
         self.default_value = str(default_value)
         self.description = description
