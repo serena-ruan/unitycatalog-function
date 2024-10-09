@@ -21,15 +21,6 @@ def random_func_name(schema: str):
     return f"{CATALOG}.{schema}.test_{uuid.uuid4().hex[:4]}"
 
 
-def named_func_name(func: Callable[..., Any]) -> str:
-    """
-    Generate a named function name in the format of `<catalog>.<schema>.<function_name>`.
-    This utility is used for the python function callable API wherein the name of the
-    function that is created within Unity Catalog is based on the input callable's name.
-    """
-    return f"{CATALOG}.{SCHEMA}.{func.__name__}"
-
-
 @contextmanager
 def generate_func_name_and_cleanup(client: DatabricksFunctionClient, schema: str):
     func_name = random_func_name(schema)
@@ -90,11 +81,12 @@ $$
 def create_python_function_and_cleanup(
     client: DatabricksFunctionClient,
     *,
+    schema: str,
     func: Callable[..., Any] = None,
 ) -> Generator[FunctionObj, None, None]:
-    func_name = named_func_name(func)
+    func_name = f"{CATALOG}.{schema}.{func.__name__}"
     try:
-        func_info = client.create_python_function(func=func, catalog=CATALOG, schema=SCHEMA)
+        func_info = client.create_python_function(func=func, catalog=CATALOG, schema=schema)
         yield FunctionObj(
             full_function_name=func_name,
             comment=func_info.comment,

@@ -428,7 +428,9 @@ def test_create_and_execute_python_function(
     client: DatabricksFunctionClient, create_function: Callable[[], PythonFunctionInputOutput]
 ):
     function_sample = create_function()
-    with create_python_function_and_cleanup(client, function_sample.func) as func_obj:
+    with create_python_function_and_cleanup(
+        client, func=function_sample.func, schema=SCHEMA
+    ) as func_obj:
         for input_example in function_sample.inputs:
             result = client.execute_function(func_obj.full_function_name, input_example)
             assert result.value == function_sample.output
@@ -977,7 +979,7 @@ def test_create_and_execute_python_function(client: DatabricksFunctionClient):
         """Test function that returns the string version of x."""
         return str(x)
 
-    with create_python_function_and_cleanup(client, func=simple_func) as func_obj:
+    with create_python_function_and_cleanup(client, func=simple_func, schema=SCHEMA) as func_obj:
         result = client.execute_function(func_obj.full_function_name, {"x": 10})
         assert result.value == "10"
 
@@ -1011,7 +1013,7 @@ def test_create_python_function_with_complex_body(client: DatabricksFunctionClie
         except Exception as e:
             raise ValueError(f"Failed to add numbers") from e
 
-    with create_python_function_and_cleanup(client, func=complex_func) as func_obj:
+    with create_python_function_and_cleanup(client, func=complex_func, schema=SCHEMA) as func_obj:
         result = client.execute_function(func_obj.full_function_name, {"a": 1, "b": 2})
         assert result.value == "3"
 
@@ -1031,7 +1033,9 @@ def test_create_python_function_with_docstring_comments(client: DatabricksFuncti
         """
         return a + b
 
-    with create_python_function_and_cleanup(client, func=documented_func) as func_obj:
+    with create_python_function_and_cleanup(
+        client, func=documented_func, schema=SCHEMA
+    ) as func_obj:
         result = client.execute_function(func_obj.full_function_name, {"a": 5, "b": 3})
         assert result.value == "8"
 
@@ -1069,7 +1073,9 @@ def test_function_with_list_of_int_return(client: DatabricksFunctionClient):
         """
         return list(range(a))
 
-    with create_python_function_and_cleanup(client, func=func_returning_list) as func_obj:
+    with create_python_function_and_cleanup(
+        client, func=func_returning_list, schema=SCHEMA
+    ) as func_obj:
         result = client.execute_function(func_obj.full_function_name, {"a": 3})
         assert result.value == "[0, 1, 2]"
 
@@ -1088,7 +1094,9 @@ def test_function_with_dict_of_string_to_int_return(client: DatabricksFunctionCl
         """
         return {f"key_{i}": i for i in range(a)}
 
-    with create_python_function_and_cleanup(client, func=func_returning_map) as func_obj:
+    with create_python_function_and_cleanup(
+        client, func=func_returning_map, schema=SCHEMA
+    ) as func_obj:
         result = client.execute_function(func_obj.full_function_name, {"a": 3})
         assert result.value == "{'key_0': 0, 'key_1': 1, 'key_2': 2}"
 
@@ -1146,7 +1154,7 @@ def test_replace_existing_function(client: DatabricksFunctionClient):
         return str(x)
 
     # Create the function for the first time
-    with create_python_function_and_cleanup(client, func=simple_func) as func_obj:
+    with create_python_function_and_cleanup(client, func=simple_func, schema=SCHEMA) as func_obj:
         result = client.execute_function(func_obj.full_function_name, {"x": 42})
         assert result.value == "42"
 
@@ -1172,7 +1180,7 @@ def test_create_function_without_replace(client: DatabricksFunctionClient):
         return str(x)
 
     # Create the function for the first time
-    with create_python_function_and_cleanup(client, func=simple_func):
+    with create_python_function_and_cleanup(client, func=simple_func, schema=SCHEMA):
         # Attempt to create the same function again without replace
         with pytest.raises(RuntimeError, match="Failed to create function for simple_func"):
             client.create_python_function(
