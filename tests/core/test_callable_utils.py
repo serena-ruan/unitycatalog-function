@@ -1,4 +1,5 @@
 import re
+import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pytest
@@ -12,7 +13,12 @@ from ucai.core.utils.callable_utils import generate_sql_function_body
 
 def test_simple_function_no_docstring():
     def simple_func(a: int, b: int) -> int:
-        """Simple addition"""
+        """
+        Simple addition
+        Args:
+            a: Parameter a
+            b: Parameter b
+        """
         return a + b
 
     sql_body = generate_sql_function_body(simple_func, "test_catalog", "test_schema", True)
@@ -170,10 +176,15 @@ def test_function_with_extra_docstring_params_ignored():
         return str(a)
 
     # We expect the generated SQL to ignore 'b' since it's not in the function signature
-    sql_body = generate_sql_function_body(
-        func_with_extra_param_in_docstring, "test_catalog", "test_schema"
-    )
+    with pytest.warns(
+        UserWarning,
+        match="The following parameters are documented in the docstring but not present in the function signature: b",
+    ) as record:
+        sql_body = generate_sql_function_body(
+            func_with_extra_param_in_docstring, "test_catalog", "test_schema"
+        )
 
+    # Define the expected SQL, stripping leading/trailing whitespace for accurate comparison
     expected_sql = """
 CREATE FUNCTION test_catalog.test_schema.func_with_extra_param_in_docstring(a INTEGER COMMENT 'The first argument')
 RETURNS STRING
@@ -184,7 +195,11 @@ AS $$
 $$;
     """
 
-    assert sql_body.strip() == expected_sql.strip()
+    assert (
+        sql_body.strip() == expected_sql.strip()
+    ), f"Generated SQL does not match expected SQL.\nGenerated SQL:\n{sql_body}\nExpected SQL:\n{expected_sql}"
+
+    assert len(record) == 1
 
 
 # ---------------------------
@@ -404,7 +419,11 @@ $$;
 
 def test_function_with_multiple_return_paths():
     def multiple_return_func(a: int) -> str:
-        """A function with multiple return paths."""
+        """
+        A function with multiple return paths.
+        Args:
+            a: An integer
+        """
         if a > 0:
             return "Positive"
         else:
@@ -413,7 +432,7 @@ def test_function_with_multiple_return_paths():
     sql_body = generate_sql_function_body(multiple_return_func, "test_catalog", "test_schema", True)
 
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.multiple_return_func(a INTEGER COMMENT 'Parameter a')
+CREATE OR REPLACE FUNCTION test_catalog.test_schema.multiple_return_func(a INTEGER COMMENT 'An integer')
 RETURNS STRING
 LANGUAGE PYTHON
 COMMENT 'A function with multiple return paths.'
@@ -912,7 +931,12 @@ def test_function_with_unsupported_return_type():
 
 def test_function_with_unsupported_param_type():
     def unsupported_param_type_func(a: object) -> str:
-        """Unsupported type hint"""
+        """
+        Unsupported type hint
+
+        Args:
+            a: An object
+        """
         return str(a)
 
     with pytest.raises(ValueError, match="Error in parameter 'a'"):
@@ -921,7 +945,12 @@ def test_function_with_unsupported_param_type():
 
 def test_function_without_return_type_hints():
     def no_return_type_hint_func(a: int, b: int):
-        """No return type hint"""
+        """
+        No return type hint
+        Args:
+            a: First integer
+            b: Second integer
+        """
         return a + b
 
     with pytest.raises(
@@ -932,7 +961,13 @@ def test_function_without_return_type_hints():
 
 def test_function_without_arg_type_hints():
     def no_arg_type_hint_func(a, b) -> int:
-        """No arg type hints"""
+        """
+        No arg type hints
+
+        Args:
+            a: First integer
+            b: Second integer
+        """
         return a + b
 
     with pytest.raises(ValueError, match="Missing type hint for parameter: a"):
@@ -1124,6 +1159,9 @@ def test_parameter_with_default_list():
     def func_with_default_list(a: List[int] = [1, 2, 3]) -> int:  # noqa: B006
         """
         Function with a default list parameter.
+
+        Args:
+            a: The list parameter
         """
         return sum(a)
 
@@ -1135,6 +1173,9 @@ def test_parameter_with_default_dict():
     def func_with_default_dict(a: Dict[str, int] = {"one": 1}) -> int:  # noqa: B006
         """
         Function with a default dict parameter.
+
+        Args:
+            a: The dictionary parameter
         """
         return a["one"]
 
@@ -1146,6 +1187,9 @@ def test_parameter_with_default_tuple():
     def func_with_default_tuple(a: Tuple[int] = (1, 2)) -> int:
         """
         Function with a default tuple parameter.
+
+        Args:
+            a: The tuple parameter
         """
         return sum(a)
 
@@ -1162,6 +1206,9 @@ def test_parameter_with_disallowed_scalar_default():
     def func_with_wrong_default(a: int = "10") -> int:
         """
         Function with a wrong type default parameter.
+
+        Args:
+            a: The integer parameter
         """
         return a * 2
 
@@ -1180,7 +1227,12 @@ def test_function_with_self():
     """Test that functions using 'self' raise an exception."""
 
     def func_with_self(self, a: int) -> int:
-        """Example function with 'self'."""
+        """
+        Example function with 'self'.
+
+        Args:
+            a: The integer parameter
+        """
         return a * 2
 
     with pytest.raises(
@@ -1193,7 +1245,12 @@ def test_function_with_cls():
     """Test that functions using 'cls' raise an exception."""
 
     def func_with_cls(cls, a: int) -> int:
-        """Example function with 'cls'."""
+        """
+        Example function with 'cls'.
+
+        Args:
+            a: The integer parameter
+        """
         return a + 5
 
     with pytest.raises(
@@ -1209,7 +1266,12 @@ def test_function_with_cls():
 
 def test_function_with_args():
     def func_with_args(*args) -> int:
-        """Function that incorrectly uses *args."""
+        """
+        Function that incorrectly uses *args.
+
+        Args:
+            args: Additional positional arguments
+        """
         return sum(args)
 
     with pytest.raises(
@@ -1223,7 +1285,12 @@ def test_function_with_args():
 
 def test_function_with_kwargs():
     def func_with_kwargs(**kwargs) -> int:
-        """Function that incorrectly uses **kwargs."""
+        """
+        Function that incorrectly uses **kwargs.
+
+        Args:
+            kwargs: Additional keyword arguments
+        """
         return sum(kwargs.values())
 
     with pytest.raises(
@@ -1237,7 +1304,14 @@ def test_function_with_kwargs():
 
 def test_function_with_mixed_args():
     def func_with_mixed(a: int, *args, **kwargs) -> int:
-        """Function that incorrectly uses both *args and **kwargs."""
+        """
+        Function that incorrectly uses both *args and **kwargs.
+
+        Args:
+            a: The first parameter
+            args: Additional positional arguments
+            kwargs: Additional keyword arguments
+        """
         return a + sum(args) + sum(kwargs.values())
 
     with pytest.raises(
@@ -1327,3 +1401,138 @@ AS $$
 $$;
     """
     assert sql_body.strip() == expected_sql.strip()
+
+
+# ---------------------------
+# Tests for Warning Logic
+# ---------------------------
+
+
+import pytest
+
+
+def test_warning_extra_params_in_docstring():
+    def func_with_extra_doc_params(a: int) -> str:
+        """
+        Function with extra parameters in docstring.
+
+        Args:
+            a: The integer parameter.
+            b: Extra parameter not in function signature.
+
+        Returns:
+            str: The string representation of 'a'.
+        """
+        return str(a)
+
+    with pytest.warns(
+        UserWarning,
+        match="The following parameters are documented in the docstring but not present in the function signature: b",
+    ) as record:
+        generate_sql_function_body(func_with_extra_doc_params, "test_catalog", "test_schema")
+
+    assert len(record) == 1
+
+
+def test_warning_missing_params_in_docstring():
+    def func_with_missing_doc_params(a: int, b: str) -> str:
+        """
+        Function with missing parameters in docstring.
+
+        Args:
+            a: The integer parameter.
+
+        Returns:
+            str: The string representation of 'a' and 'b'.
+        """
+        return f"{a}-{b}"
+
+    with pytest.warns(
+        UserWarning,
+        match="The following parameters are present in the function signature but not documented in the docstring: b",
+    ) as record:
+        generate_sql_function_body(func_with_missing_doc_params, "test_catalog", "test_schema")
+
+    assert len(record) == 1
+
+
+def test_warning_doc_params_but_no_signature_params():
+    def func_with_doc_params_but_no_signature() -> str:
+        """
+        Function with docstring parameters but no signature parameters.
+
+        Args:
+            a: The parameter which does not exist in the signature.
+
+        Returns:
+            str: A default string.
+        """
+        return "default"
+
+    expected_warning_1 = (
+        "In function 'func_with_doc_params_but_no_signature': "
+        "The following parameters are documented in the docstring but not present in the function signature: a"
+    )
+    expected_warning_2 = (
+        "In function 'func_with_doc_params_but_no_signature': "
+        "Docstring defines parameters, but the function has no parameters in its signature."
+    )
+
+    combined_match = f"({expected_warning_1})|({expected_warning_2})"
+
+    with pytest.warns(UserWarning, match=combined_match) as record:
+        generate_sql_function_body(
+            func_with_doc_params_but_no_signature, "test_catalog", "test_schema"
+        )
+
+    assert len(record) == 2
+
+
+def test_warning_signature_params_but_no_doc_params():
+    def func_with_signature_params_but_no_doc(a: int, b: int) -> int:
+        """
+        Function with signature parameters but no docstring parameters.
+
+        Returns:
+            int: The sum of 'a' and 'b'.
+        """
+        return a + b
+
+    expected_warning_1 = (
+        "In function 'func_with_signature_params_but_no_doc': "
+        "The following parameters are present in the function signature but not documented in the docstring: a, b"
+    )
+    expected_warning_2 = (
+        "In function 'func_with_signature_params_but_no_doc': "
+        "Function has parameters in its signature, but the docstring does not document any parameters."
+    )
+
+    combined_match = f"({expected_warning_1})|({expected_warning_2})"
+
+    with pytest.warns(UserWarning, match=combined_match) as record:
+        generate_sql_function_body(
+            func_with_signature_params_but_no_doc, "test_catalog", "test_schema"
+        )
+
+    assert len(record) == 2
+
+
+def test_no_warnings_when_consistent():
+    def consistent_func(a: int, b: str) -> str:
+        """
+        Consistent function.
+
+        Args:
+            a: The integer parameter.
+            b: The string parameter.
+
+        Returns:
+            str: The concatenation of 'a' and 'b'.
+        """
+        return f"{a}-{b}"
+
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        generate_sql_function_body(consistent_func, "test_catalog", "test_schema")
+
+    assert len(record) == 0
