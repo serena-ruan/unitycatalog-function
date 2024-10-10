@@ -881,7 +881,12 @@ def test_create_and_execute_python_function(client: DatabricksFunctionClient):
 
 def test_create_python_function_with_invalid_arguments(client: DatabricksFunctionClient):
     def invalid_func(self, x: int) -> str:
-        """Function with 'self' in the argument."""
+        """
+        Function with 'self' in the argument.
+
+        Args:
+            x: An integer to convert to a string.
+        """
         return str(x)
 
     with pytest.raises(
@@ -890,7 +895,12 @@ def test_create_python_function_with_invalid_arguments(client: DatabricksFunctio
         client.create_python_function(func=invalid_func, catalog=CATALOG, schema=SCHEMA)
 
     def another_invalid_func(cls, x: int) -> str:
-        """Function with 'cls' in the argument."""
+        """
+        Function with 'cls' in the argument.
+
+        Args:
+            x: An integer to convert to a string.
+        """
         return str(x)
 
     with pytest.raises(
