@@ -82,7 +82,7 @@ class UCFunctionToolkit(BaseModel):
         self.tools_dict = process_function_names(
             function_names=self.function_names,
             tools_dict=self.tools_dict,
-            client=client,
+            client=self.client,
             uc_function_to_tool_func=self.uc_function_to_crewai_tool,
         )
         return self
