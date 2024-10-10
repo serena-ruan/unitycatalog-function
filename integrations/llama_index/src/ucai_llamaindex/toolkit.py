@@ -90,7 +90,15 @@ class UCFunctionToolkit(BaseModel):
             uc_function_to_tool_func=self.uc_function_to_llama_tool,
             return_direct=self.return_direct,
         )
-        return self
+
+        # Since the 'properties' key is a reserved arg in LlamaIndex, disallow creating a tool with a
+        # function that has a 'properties' key in its input schema for LlamaIndex tool usage.
+        for tool_name, tool in self.tools_dict.items():
+            if "properties" in tool.metadata.fn_schema.model_fields:
+                raise ValueError(
+                    f"Function '{tool_name}' has a 'properties' key in its input schema. "
+                    "Cannot create a tool with this function due to LlamaIndex reserving this argument name."
+                )
 
     @staticmethod
     def uc_function_to_llama_tool(
@@ -199,9 +207,7 @@ def extract_properties(data: dict) -> dict:
         raise TypeError("'properties' must be a dictionary.")
 
     top_level_keys = set(data.keys()) - {"properties"}
-
     properties_keys = set(properties.keys())
-
     overlapping_keys = top_level_keys & properties_keys
 
     if overlapping_keys:
