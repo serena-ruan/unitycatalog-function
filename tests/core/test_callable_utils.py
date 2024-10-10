@@ -432,7 +432,7 @@ def test_function_with_multiple_return_paths():
     sql_body = generate_sql_function_body(multiple_return_func, "test_catalog", "test_schema", True)
 
     expected_sql = """
-CREATE OR REPLACE FUNCTION test_catalog.test_schema.multiple_return_func(a LONG COMMENT 'Parameter a')
+CREATE OR REPLACE FUNCTION test_catalog.test_schema.multiple_return_func(a LONG COMMENT 'An integer')
 RETURNS STRING
 LANGUAGE PYTHON
 COMMENT 'A function with multiple return paths.'
