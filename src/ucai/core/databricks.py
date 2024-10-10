@@ -30,7 +30,6 @@ from ucai.core.utils.validation_utils import validate_full_function_name, valida
 if TYPE_CHECKING:
     from databricks.sdk import WorkspaceClient
     from databricks.sdk.service.catalog import (
-        CreateFunction,
         FunctionInfo,
         FunctionParameterInfo,
     )
