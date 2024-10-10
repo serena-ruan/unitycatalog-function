@@ -337,7 +337,7 @@ def assemble_sql_body(
     """Assembles the final SQL function body."""
     sql_params_str = ", ".join(sql_params)
     sql_body = f"""
-{replace_command} FUNCTION {catalog}.{schema}.{func_name}({sql_params_str})
+{replace_command} FUNCTION `{catalog}`.`{schema}`.`{func_name}`({sql_params_str})
 RETURNS {sql_return_type}
 LANGUAGE PYTHON
 COMMENT '{func_comment}'
