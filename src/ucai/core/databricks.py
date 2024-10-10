@@ -218,7 +218,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
 
             | Python Type          | Unity Catalog Type       |
             |----------------------|--------------------------|
-            | `int`                | `INTEGER`                |
+            | `int`                | `LONG`                |
             | `float`              | `DOUBLE`                 |
             | `str`                | `STRING`                 |
             | `bool`               | `BOOLEAN`                |

@@ -73,7 +73,7 @@ The `create_python_function` API allows you to directly convert a Python functio
 
     | Python Type          | Unity Catalog Type       |
     |----------------------|--------------------------|
-    | `int`                | `INTEGER`                |
+    | `int`                | `LONG`                   |
     | `float`              | `DOUBLE`                 |
     | `str`                | `STRING`                 |
     | `bool`               | `BOOLEAN`                |
@@ -192,7 +192,7 @@ def func_with_optional_param(a: Optional[int] = None, b: str = "default") -> str
 
 # This will be converted into the following SQL function:
 # CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_optional_param(
-#     a INTEGER DEFAULT NULL COMMENT 'Optional integer parameter, default None.',
+#     a LONG DEFAULT NULL COMMENT 'Optional integer parameter, default None.',
 #     b STRING DEFAULT 'default' COMMENT 'Optional string parameter, default "default".'
 # )
 # RETURNS STRING
@@ -222,7 +222,7 @@ def func_with_direct_default(a: int = 10, b: str = "hello") -> str:
 
 # This will be converted into the following SQL function:
 # CREATE OR REPLACE FUNCTION test_catalog.test_schema.func_with_direct_default(
-#     a INTEGER DEFAULT 10 COMMENT 'Optional integer parameter with default 10.',
+#     a LONG DEFAULT 10 COMMENT 'Optional integer parameter with default 10.',
 #     b STRING DEFAULT 'hello' COMMENT 'Optional string parameter with default "hello".'
 # )
 # RETURNS STRING
