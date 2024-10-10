@@ -459,22 +459,26 @@ def check_docstring_signature_consistency(
         warnings.warn(
             f"In function '{func_name}': The following parameters are documented in the docstring but not present in the function signature: {', '.join(sorted(extra_in_doc))}",
             UserWarning,
+            stacklevel=2,
         )
 
     if extra_in_signature:
         warnings.warn(
             f"In function '{func_name}': The following parameters are present in the function signature but not documented in the docstring: {', '.join(sorted(extra_in_signature))}",
             UserWarning,
+            stacklevel=2,
         )
 
     if doc_params and not signature_params:
         warnings.warn(
             f"In function '{func_name}': Docstring defines parameters, but the function has no parameters in its signature.",
             UserWarning,
+            stacklevel=2,
         )
 
     if not doc_params and signature_params:
         warnings.warn(
             f"In function '{func_name}': Function has parameters in its signature, but the docstring does not document any parameters.",
             UserWarning,
+            stacklevel=2,
         )
