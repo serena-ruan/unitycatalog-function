@@ -74,8 +74,7 @@ class UCFunctionToolkit(BaseModel):
 
     @model_validator(mode="after")
     def validate_toolkit(self) -> "UCFunctionToolkit":
-        client = validate_or_set_default_client(self.client)
-        self.client = client
+        self.client = validate_or_set_default_client(self.client)
 
         if not self.function_names:
             raise ValueError("Cannot create tool instances without function_names being provided.")
