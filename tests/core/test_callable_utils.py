@@ -176,7 +176,10 @@ def test_function_with_extra_docstring_params_ignored():
         return str(a)
 
     # We expect the generated SQL to ignore 'b' since it's not in the function signature
-    with pytest.warns(UserWarning) as record:
+    with pytest.warns(
+        UserWarning,
+        match="The following parameters are documented in the docstring but not present in the function signature: b",
+    ) as record:
         sql_body = generate_sql_function_body(
             func_with_extra_param_in_docstring, "test_catalog", "test_schema"
         )
@@ -197,13 +200,6 @@ $$;
     ), f"Generated SQL does not match expected SQL.\nGenerated SQL:\n{sql_body}\nExpected SQL:\n{expected_sql}"
 
     assert len(record) == 1
-
-    warning_messages = [str(warn.message) for warn in record]
-
-    expected_warning = "The following parameters are documented in the docstring but not present in the function signature: b"
-
-    # Assert that the expected warning is present
-    assert expected_warning in warning_messages[0]
 
 
 # ---------------------------
@@ -1429,16 +1425,13 @@ def test_warning_extra_params_in_docstring():
         """
         return str(a)
 
-    with pytest.warns(UserWarning) as record:
+    with pytest.warns(
+        UserWarning,
+        match="The following parameters are documented in the docstring but not present in the function signature: b",
+    ) as record:
         generate_sql_function_body(func_with_extra_doc_params, "test_catalog", "test_schema")
 
     assert len(record) == 1
-
-    warning_messages = [str(warn.message) for warn in record]
-
-    expected_warning = "The following parameters are documented in the docstring but not present in the function signature: b"
-
-    assert expected_warning in warning_messages[0]
 
 
 def test_warning_missing_params_in_docstring():
@@ -1454,16 +1447,13 @@ def test_warning_missing_params_in_docstring():
         """
         return f"{a}-{b}"
 
-    with pytest.warns(UserWarning) as record:
+    with pytest.warns(
+        UserWarning,
+        match="The following parameters are present in the function signature but not documented in the docstring: b",
+    ) as record:
         generate_sql_function_body(func_with_missing_doc_params, "test_catalog", "test_schema")
 
     assert len(record) == 1
-
-    warning_messages = [str(warn.message) for warn in record]
-
-    expected_warning = "The following parameters are present in the function signature but not documented in the docstring: b"
-
-    assert expected_warning in warning_messages[0]
 
 
 def test_warning_doc_params_but_no_signature_params():
@@ -1479,15 +1469,6 @@ def test_warning_doc_params_but_no_signature_params():
         """
         return "default"
 
-    with pytest.warns(UserWarning) as record:
-        generate_sql_function_body(
-            func_with_doc_params_but_no_signature, "test_catalog", "test_schema"
-        )
-
-    assert len(record) == 2
-
-    warning_messages = [str(warn.message) for warn in record]
-
     expected_warning_1 = (
         "In function 'func_with_doc_params_but_no_signature': "
         "The following parameters are documented in the docstring but not present in the function signature: a"
@@ -1497,8 +1478,14 @@ def test_warning_doc_params_but_no_signature_params():
         "Docstring defines parameters, but the function has no parameters in its signature."
     )
 
-    assert expected_warning_1 in warning_messages
-    assert expected_warning_2 in warning_messages
+    combined_match = f"({expected_warning_1})|({expected_warning_2})"
+
+    with pytest.warns(UserWarning, match=combined_match) as record:
+        generate_sql_function_body(
+            func_with_doc_params_but_no_signature, "test_catalog", "test_schema"
+        )
+
+    assert len(record) == 2
 
 
 def test_warning_signature_params_but_no_doc_params():
@@ -1511,15 +1498,6 @@ def test_warning_signature_params_but_no_doc_params():
         """
         return a + b
 
-    with pytest.warns(UserWarning) as record:
-        generate_sql_function_body(
-            func_with_signature_params_but_no_doc, "test_catalog", "test_schema"
-        )
-
-    assert len(record) == 2
-
-    warning_messages = [str(warn.message) for warn in record]
-
     expected_warning_1 = (
         "In function 'func_with_signature_params_but_no_doc': "
         "The following parameters are present in the function signature but not documented in the docstring: a, b"
@@ -1529,8 +1507,14 @@ def test_warning_signature_params_but_no_doc_params():
         "Function has parameters in its signature, but the docstring does not document any parameters."
     )
 
-    assert expected_warning_1 in warning_messages
-    assert expected_warning_2 in warning_messages
+    combined_match = f"({expected_warning_1})|({expected_warning_2})"
+
+    with pytest.warns(UserWarning, match=combined_match) as record:
+        generate_sql_function_body(
+            func_with_signature_params_but_no_doc, "test_catalog", "test_schema"
+        )
+
+    assert len(record) == 2
 
 
 def test_no_warnings_when_consistent():
@@ -1551,6 +1535,4 @@ def test_no_warnings_when_consistent():
         warnings.simplefilter("always")
         generate_sql_function_body(consistent_func, "test_catalog", "test_schema")
 
-    assert (
-        len(record) == 0
-    ), f"Expected no warnings, but got {len(record)}: {[str(warn.message) for warn in record]}"
+    assert len(record) == 0
