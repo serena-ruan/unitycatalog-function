@@ -1,8 +1,9 @@
 import ast
 import inspect
+import warnings
 from dataclasses import dataclass
 from textwrap import dedent, indent
-from typing import Any, Callable, Optional, Union, get_args, get_origin, get_type_hints
+from typing import Any, Callable, Optional, Set, Union, get_args, get_origin, get_type_hints
 
 from ucai.core.utils.type_utils import python_type_to_sql_type
 
@@ -374,6 +375,9 @@ def generate_sql_function_body(
         raise ValueError(f"Function '{func_name}' must have a docstring with a description.")
     docstring_info = parse_docstring(docstring)
 
+    params_in_signature = set(signature.parameters.keys()) - set(FORBIDDEN_PARAMS)
+    check_docstring_signature_consistency(docstring_info.params, params_in_signature, func_name)
+
     sql_params = []
     for param_name, param in signature.parameters.items():
         sql_param = process_parameter(param_name, param, type_hints, docstring_info)
@@ -428,3 +432,49 @@ def validate_return_type(func_name: str, type_hints: dict[str, Any]) -> str:
 
         raise ValueError(base_msg) from e
     return sql_return_type
+
+
+def check_docstring_signature_consistency(
+    doc_params: Optional[dict[str, str]], signature_params: Set[str], func_name: str
+) -> None:
+    """
+    Checks for inconsistencies between docstring parameters and function signature parameters.
+    Issues warnings if there are mismatches.
+
+    Args:
+        doc_params (Optional[dict[str, str]]): Parameters documented in the docstring.
+        signature_params (Set[str]): Parameters present in the function signature.
+        func_name (str): The name of the function being checked.
+
+    Returns:
+        None
+    """
+    params_in_doc = set(doc_params.keys() or {})
+
+    if extra_in_doc := params_in_doc - signature_params:
+        warnings.warn(
+            f"In function '{func_name}': The following parameters are documented in the docstring but not present in the function signature: {', '.join(sorted(extra_in_doc))}",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    if extra_in_signature := signature_params - params_in_doc:
+        warnings.warn(
+            f"In function '{func_name}': The following parameters are present in the function signature but not documented in the docstring: {', '.join(sorted(extra_in_signature))}",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    if doc_params and not signature_params:
+        warnings.warn(
+            f"In function '{func_name}': Docstring defines parameters, but the function has no parameters in its signature.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    if not doc_params and signature_params:
+        warnings.warn(
+            f"In function '{func_name}': Function has parameters in its signature, but the docstring does not document any parameters.",
+            UserWarning,
+            stacklevel=2,
+        )
