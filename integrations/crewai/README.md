@@ -74,7 +74,7 @@ Now that the function exists within the Catalog and Schema that we defined, we c
 
 #### Create an instance of a CrewAI compatible tool
 
-[CrewAI Tools](https://docs.crewai.com/core-concepts/Tools/) are callable external functions that GenAI applications (called by
+[CrewAI Tools](https://docs.crewai.com/core-concepts/Tools/) are callable external functions that GenAI applications can use (called by
 an LLM), which are exposed with a UC interface through the use of the ucai_crewai package via the `UCFunctionToolkit` API.
 
 ```python
