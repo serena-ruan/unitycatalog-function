@@ -30,7 +30,6 @@ from ucai.core.utils.validation_utils import validate_full_function_name, valida
 if TYPE_CHECKING:
     from databricks.sdk import WorkspaceClient
     from databricks.sdk.service.catalog import (
-        CreateFunction,
         FunctionInfo,
         FunctionParameterInfo,
     )
@@ -174,7 +173,6 @@ class DatabricksFunctionClient(BaseFunctionClient):
         self,
         *,
         sql_function_body: Optional[str] = None,
-        function_info: Optional["CreateFunction"] = None,
     ) -> "FunctionInfo":
         """
         Create a UC function with the given sql body or function info.
@@ -187,28 +185,17 @@ class DatabricksFunctionClient(BaseFunctionClient):
                 It should follow the syntax of CREATE FUNCTION statement in Databricks.
                 Ref: https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-ddl-create-sql-function.html#syntax
 
-            function_info: The function info. Defaults to None.
-
         Returns:
             FunctionInfo: The created function info.
         """
-        if sql_function_body and function_info:
-            raise ValueError("Only one of sql_function_body and function_info should be provided.")
         if sql_function_body:
             self.set_default_spark_session()
-            try:
-                # TODO: add timeout
-                self.spark.sql(sql_function_body)
-            except Exception as e:
-                raise RuntimeError(
-                    f"Failed to create function with sql body: {sql_function_body}"
-                ) from e
+            # TODO: add timeout
+            self.spark.sql(sql_function_body)
             return self.get_function(extract_function_name(sql_function_body))
-        if function_info:
-            # TODO: support this after CreateFunction bug is fixed in databricks-sdk
-            raise NotImplementedError("Creating function using function_info is not supported yet.")
-            return self.client.functions.create(function_info)
-        raise ValueError("Either function_info or sql_function_body should be provided.")
+        # TODO: support creating from function_info after CreateFunction bug is fixed in databricks-sdk
+        # return self.client.functions.create(function_info)
+        raise ValueError("sql_function_body must be provided.")
 
     @override
     def create_python_function(
@@ -355,10 +342,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
 
         sql_function_body = generate_sql_function_body(func, catalog, schema, replace)
 
-        try:
-            return self.create_function(sql_function_body=sql_function_body)
-        except Exception as e:
-            raise RuntimeError(f"Failed to create function for {func.__name__}") from e
+        return self.create_function(sql_function_body=sql_function_body)
 
     @override
     def get_function(self, function_name: str, **kwargs: Any) -> "FunctionInfo":
@@ -402,7 +386,7 @@ class DatabricksFunctionClient(BaseFunctionClient):
             page_token: The token for the next page. Defaults to None.
 
         Returns:
-            PageList[List[FunctionInfo]]: The paginated list of function infos.
+            PageList[FunctionInfo]: The paginated list of function infos.
         """
         from databricks.sdk.service.catalog import FunctionInfo
 
